@@ -1,0 +1,25 @@
+# ==============================================================================
+# Render Blueprint Specification (Infrastructure as Code)
+# Permite desplegar el backend directamente en Render usando Docker
+# ==============================================================================
+services:
+  - type: web
+    name: salon-estudio-backend-api
+    runtime: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: FIRESTORE_COLLECTION_NAME
+        value: system_config
+      # Variables de Firebase (se configuran en el panel de Render):
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false
+
