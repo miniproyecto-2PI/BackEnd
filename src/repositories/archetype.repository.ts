@@ -14,7 +14,7 @@ export class ArchetypeRepository implements IArchetypeRepository {
     } catch (err) {
       throw new FirestoreError(
         `Error al conectar con Firestore: ${(err as Error).message}`,
-        err
+        { database: (err as Error).message }
       );
     }
   }
@@ -94,4 +94,3 @@ export class ArchetypeRepository implements IArchetypeRepository {
     });
   }
 }
-

@@ -15,7 +15,7 @@ export function createApp(): Application {
   // 1. Cabeceras de seguridad
   app.use(
     helmet({
-      contentSecurityPolicy: false, // Permite cargar recursos estáticos de Swagger UI
+      contentSecurityPolicy: false, // Permite cargar Swagger UI sin bloqueos CSP
     })
   );
 
@@ -39,15 +39,28 @@ export function createApp(): Application {
     app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
   }
 
-  // 5. Documentación Swagger UI y esquema JSON
+  // 5. Documentación Swagger UI en /api/docs
   app.use(
-    '/api-docs',
+    '/api/docs',
     swaggerUi.serve,
     swaggerUi.setup(swaggerSpec, {
       customSiteTitle: 'Salón de Estudio - API Docs (Swagger)',
     })
   );
 
+  // Redirecciones amigables para /api-docs y /docs
+  app.get('/api-docs', (_req: Request, res: Response) => {
+    res.redirect('/api/docs');
+  });
+  app.get('/docs', (_req: Request, res: Response) => {
+    res.redirect('/api/docs');
+  });
+
+  // Esquema OpenAPI en JSON
+  app.get('/api/docs.json', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
   app.get('/api-docs.json', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
@@ -59,7 +72,8 @@ export function createApp(): Application {
       name: 'Salón de Estudio Colaborativo - Backend API',
       status: 'active',
       sprint: 'Sprint 0: Base Técnica End-to-End (TS-00)',
-      documentation: '/api-docs',
+      standards: 'TS-05: Contrato API y Errores Estándar',
+      documentation: '/api/docs',
       health: '/api/health',
       archetypeEndpoint: '/api/archetype/data',
       timestamp: new Date().toISOString(),
@@ -72,9 +86,8 @@ export function createApp(): Application {
   // 8. Manejo de rutas 404 (no encontradas)
   app.use(notFoundHandler);
 
-  // 9. Manejador de errores global
+  // 9. Manejador de errores global con estándar TS-05
   app.use(errorHandler);
 
   return app;
 }
-
