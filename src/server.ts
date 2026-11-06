@@ -7,7 +7,7 @@ const server = app.listen(env.PORT, env.HOST, () => {
   console.log('========================================================');
   console.log(`🚀 Servidor Backend iniciado con éxito`);
   console.log(`📡 URL Base:      http://${env.HOST}:${env.PORT}`);
-  console.log(`📚 Swagger UI:    http://${env.HOST}:${env.PORT}/api-docs`);
+  console.log(`📚 Swagger UI:    http://${env.HOST}:${env.PORT}/api/docs`);
   console.log(`🩺 Health Check:  http://${env.HOST}:${env.PORT}/api/health`);
   console.log(`🔥 TS-00 Data:    http://${env.HOST}:${env.PORT}/api/archetype/data`);
   console.log(`🌍 Entorno:       ${env.NODE_ENV}`);
@@ -31,4 +31,3 @@ const gracefulShutdown = (signal: string) => {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-

@@ -1,3 +1,5 @@
+import { ErrorPayload } from './errors.types';
+
 export interface ArchetypeData {
   id?: string;
   projectName: string;
@@ -11,14 +13,9 @@ export interface ArchetypeData {
 }
 
 export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
+  success?: boolean;
+  message?: string;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
-  timestamp: string;
+  error?: ErrorPayload;
+  timestamp?: string;
 }
-
