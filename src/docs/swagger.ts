@@ -19,12 +19,8 @@ Implementada en **Node.js + TypeScript** bajo una arquitectura por capas (Rutas,
   },
   servers: [
     {
-      url: `http://localhost:${env.PORT}`,
-      description: 'Servidor Local de Desarrollo',
-    },
-    {
-      url: 'https://backend-miniproyecto2.onrender.com',
-      description: 'Servidor de Producción (Render)',
+      url: '/',
+      description: 'Servidor Actual (Relativo)',
     },
   ],
   tags: [
