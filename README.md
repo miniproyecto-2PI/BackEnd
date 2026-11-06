@@ -142,7 +142,7 @@ Existen tres formas soportadas:
    ```ini
    FIREBASE_PROJECT_ID=tu-proyecto-id
    FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@tu-proyecto-id.iam.gserviceaccount.com
-   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   FIREBASE_PRIVATE_KEY="<tu-clave-privada>"
    ```
 
 3. **Opción 3 (Archivo local para desarrollo)**:
