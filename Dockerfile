@@ -10,7 +10,7 @@ WORKDIR /app
 
 # Instalar dependencias del proyecto (incluidas devDependencies para compilar)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copiar archivos de configuración y código fuente TypeScript
 COPY tsconfig.json ./
@@ -34,7 +34,7 @@ ENV HOST=0.0.0.0
 COPY package*.json ./
 
 # Instalar exclusivamente dependencias de producción para mantener la imagen ligera
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copiar el artefacto compilado desde la etapa builder
 COPY --from=builder /app/dist ./dist
@@ -47,4 +47,3 @@ EXPOSE 3000
 
 # Comando para iniciar la aplicación compilada
 CMD ["node", "dist/server.js"]
-
