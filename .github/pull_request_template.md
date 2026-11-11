@@ -35,7 +35,7 @@
 - [ ] `npm run build` (Compilación de TypeScript sin errores)
 - [ ] `npm run typecheck` (Chequeo estricto de tipos pasando)
 - [ ] Conexión y lectura con Firestore verificada
-- [ ] Swagger UI validado en `/api-docs` y esquema `/api-docs.json`
+- [ ] Swagger UI validado en `/api/docs` y esquema `/api/docs.json`
 - [ ] Respuestas de error estructuradas (503 / 404 / 400)
 
 
@@ -59,6 +59,6 @@ curl -X GET http://localhost:3000/api/archetype/data
 ```
 
 ### Pruebas desde Swagger UI:
-- [ ] Probado interactivamente en `http://localhost:3000/api-docs`
+- [ ] Probado interactivamente en `http://localhost:3000/api/docs`
 
 <!-- Adjunta aquí capturas de pantalla de Swagger, respuestas JSON o evidencias si aplica -->
