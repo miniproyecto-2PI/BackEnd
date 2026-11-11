@@ -59,3 +59,8 @@ export const registerSchema = z
   .strict();
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+/** POST /api/users/me/username (US-02: elegir username tras el ingreso con Google) */
+export const chooseUsernameSchema = z.object({ username: usernameField }).strict();
+
+export type ChooseUsernameInput = z.infer<typeof chooseUsernameSchema>;
