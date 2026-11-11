@@ -1,295 +1,298 @@
 # 🚀 Salón de Estudio Colaborativo en Tiempo Real — Backend API
 
-Backend REST desarrollado en **Node.js** con **TypeScript**, estructurado bajo una **arquitectura por capas** (Rutas, Lógica de Negocio y Acceso a Datos) y conectado a **Google Cloud Firestore**. 
+API REST en **Node.js + TypeScript** (Express), con **arquitectura por capas**, **Firebase Authentication** para verificar sesiones y **Firestore** como base de datos. Se despliega en **Render** con Docker.
 
-Este proyecto corresponde a la base técnica del **Sprint 0 (TS-00)** para el MiniProyecto 2. Está diseñado para ejecutarse localmente, en contenedores con **Docker / Docker Compose** y desplegarse automáticamente en **Render**.
+Forma parte de una arquitectura de 3 proyectos independientes: `FrontEnd` (Vercel), `BackEnd` (este repositorio) y `backend-realtime` (Socket.IO). **El frontend nunca consulta Firestore directamente**: solo usa Firebase Authentication para iniciar sesión, y todos los datos pasan por esta API.
+
+| Sprint | Historias cubiertas por esta API |
+|---|---|
+| 0 | TS-00 base técnica (dato leído de Firestore) · TS-05 contrato de errores |
+| 1 | TS-01 Firebase Auth y perfiles · US-01 registro manual · US-02 registro con Google · US-03 verificación de sesión · TS-07 pruebas y CI |
 
 ---
 
-## 📋 Tabla de Contenidos
-- [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
-- [Requisitos Previos](#-requisitos-previos)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Configuración de Variables de Entorno](#-configuración-de-variables-de-entorno)
-- [Ejecución en Desarrollo Local](#-ejecución-en-desarrollo-local)
-- [Ejecución con Docker y Docker Compose](#-ejecución-con-docker-y-docker-compose)
+## 📋 Tabla de contenidos
+- [Arquitectura](#-arquitectura)
+- [Requisitos](#-requisitos)
+- [Estructura](#-estructura)
+- [Variables de entorno](#-variables-de-entorno)
+- [Ejecución local](#-ejecución-local)
+- [Docker](#-docker)
+- [Pruebas, lint y CI](#-pruebas-lint-y-ci)
 - [Despliegue en Render](#-despliegue-en-render)
-- [Documentación Interactiva (Swagger / OpenAPI)](#-documentación-interactiva-swagger--openapi)
-- [Endpoints Principales (TS-00)](#-endpoints-principales-ts-00)
-- [Manejo de Errores](#-manejo-de-errores)
+- [Swagger](#-swagger--openapi)
+- [Endpoints](#-endpoints)
+- [Autenticación](#-autenticación)
+- [Modelo de datos en Firestore](#-modelo-de-datos-en-firestore)
+- [Contrato de errores (TS-05)](#-contrato-de-errores-ts-05)
+- [CORS](#-cors)
 
 ---
 
-## 🏛️ Arquitectura del Proyecto
-
-El backend implementa una **Arquitectura en Capas** que garantiza la separación de responsabilidades y la mantenibilidad requerida por el proyecto:
+## 🏛️ Arquitectura
 
 ```
-[ Cliente Web / Frontend ]
-          │ (HTTP / JSON)
+[ Frontend (React, Vercel) ] ── Firebase Auth SDK ──▶ inicia sesión y obtiene el ID token
+          │
+          │  HTTP JSON + Authorization: Bearer <ID token>
           ▼
-┌────────────────────────────────────────┐
-│ Capa de Presentación / Rutas           │ ➔ Valida peticiones HTTP y enruta
-│ (src/routes, src/controllers)          │
-└──────────────────┬─────────────────────┘
-                   │
-                   ▼
-┌────────────────────────────────────────┐
-│ Capa de Lógica de Negocio              │ ➔ Orquesta reglas y flujos del sistema
-│ (src/services)                         │
-└──────────────────┬─────────────────────┘
-                   │
-                   ▼
-┌────────────────────────────────────────┐
-│ Capa de Acceso a Datos / Repositorio   │ ➔ Comunicación directa con Firestore
-│ (src/repositories)                     │
-└──────────────────┬─────────────────────┘
-                   │
-                   ▼
-       [ Google Cloud Firestore ]
+┌─────────────────────────────────────────────┐
+│ Rutas y middlewares (src/routes, middlewares)│ ➔ CORS, authenticate (401), validateBody (Zod, 400)
+├─────────────────────────────────────────────┤
+│ Controladores (src/controllers)              │ ➔ HTTP → servicio → respuesta estándar
+├─────────────────────────────────────────────┤
+│ Servicios (src/services)                     │ ➔ Reglas de negocio (registro, perfil Google, rollback)
+├─────────────────────────────────────────────┤
+│ Repositorios (src/repositories)              │ ➔ Firestore con transacciones (unicidad de username)
+└─────────────────────────────────────────────┘
+          │  Firebase Admin SDK
+          ▼
+[ Firebase Authentication ]   [ Cloud Firestore ]
 ```
 
-1. **Rutas (`src/routes`)**: Definen los endpoints HTTP y asocian las anotaciones OpenAPI / Swagger.
-2. **Controladores (`src/controllers`)**: Reciben las peticiones, extraen parámetros y delegan la ejecución al servicio correspondiente.
-3. **Servicios (`src/services`)**: Contienen la lógica de negocio, validaciones y orquestación.
-4. **Repositorios (`src/repositories`)**: Abstraen la persistencia y encapsulan las consultas a Firestore usando Firebase Admin SDK.
-5. **Manejador de Errores Global (`src/middlewares/errorHandler.ts`)**: Captura cualquier excepción y responde con mensajes legibles y estructurados.
+Las dependencias externas (verificador de tokens, proveedor de identidad y repositorio de usuarios) se inyectan en `createApp()` ([src/container.ts](src/container.ts)). Producción usa Firebase; las pruebas usan dobles en memoria.
 
 ---
 
-## 📦 Requisitos Previos
+## 📦 Requisitos
 
-- **Node.js**: Versión 20 LTS o superior (v22 / v24 recomendada).
-- **npm**: Versión 10 o superior.
-- **Docker & Docker Compose** (opcional para ejecución en contenedores).
-- **Proyecto de Firebase**: Con Firestore habilitado en modo producción o prueba.
+- **Node.js 20** o superior (la imagen Docker y la CI usan Node 20).
+- **npm 10** o superior.
+- **Docker** (opcional, para ejecutar en contenedor).
+- **Proyecto de Firebase** con Firestore y Authentication habilitados (proveedores **Correo/contraseña** y **Google**).
 
 ---
 
-## 📂 Estructura del Directorio
+## 📂 Estructura
 
 ```bash
 BackEnd/
-├── .dockerignore
-├── .env.example              # Plantilla de variables de entorno (sin credenciales)
-├── .gitignore                # Reglas estrictas para ignorar node_modules y secretos
-├── Dockerfile                # Imagen multi-stage optimizada para producción
-├── docker-compose.yml        # Orquestación de servicios en contenedores
-├── render.yaml               # Blueprint de infraestructura como código para Render
-├── package.json
-├── tsconfig.json
-├── README.md
+├── .github/
+│   ├── workflows/ci.yml           # Lint, tipos, build, pruebas y docker build en cada PR
+│   └── pull_request_template.md
+├── Dockerfile                     # Imagen multi-stage (Node 20 Alpine, usuario sin root)
+├── docker-compose.yml             # Levanta la API en local
+├── render.yaml                    # Blueprint de Render
+├── firebase.json / firestore.rules# Reglas de Firestore: deniegan todo acceso desde clientes
+├── eslint.config.mjs · vitest.config.ts · tsconfig.test.json
+├── tests/                         # Vitest + Supertest (dobles en memoria, sin Firebase)
 └── src/
-    ├── app.ts                # Configuración de Express, middlewares y Swagger
-    ├── server.ts             # Punto de entrada y manejo de apagado controlado
-    ├── config/
-    │   ├── env.ts            # Tipado y validación de variables de entorno
-    │   └── firebase.ts       # Inicialización resiliente de Firebase Admin y Firestore
-    ├── controllers/
-    │   ├── archetype.controller.ts
-    │   └── health.controller.ts
-    ├── docs/
-    │   └── swagger.ts        # Configuración de Swagger JSDoc
-    ├── middlewares/
-    │   ├── errorHandler.ts   # Manejador centralizado de errores
-    │   └── notFoundHandler.ts
-    ├── repositories/
-    │   ├── archetype.repository.ts
-    │   └── interfaces/
-    │       └── archetype.repository.interface.ts
-    ├── routes/
-    │   ├── archetype.routes.ts
-    │   ├── health.routes.ts
-    │   └── index.ts
-    ├── services/
-    │   └── archetype.service.ts
-    └── types/
-        ├── archetype.types.ts
-        └── errors.types.ts
+    ├── app.ts                     # createApp(deps): middlewares, Swagger, rutas
+    ├── server.ts                  # Punto de entrada y apagado controlado
+    ├── container.ts               # Dependencias inyectables (Firebase en producción)
+    ├── config/                    # env.ts, firebase.ts (Auth + Firestore), cors.ts
+    ├── constants/avatars.ts       # Catálogo de avatares del registro manual
+    ├── controllers/               # archetype, health, auth, user
+    ├── docs/                      # Swagger: swagger.ts, components.ts, paths/*.paths.ts
+    ├── middlewares/               # authenticate, requireCompleteProfile, validate, errorHandler, notFound
+    ├── repositories/              # archetype, user (+ interfaces/)
+    ├── routes/                    # index (createApiRouter), auth, users, archetype, health, errorDemo
+    ├── services/                  # user.service, identity.provider, token.verifier, archetype
+    ├── types/                     # errors, user, archetype, express.d.ts
+    ├── utils/                     # response (envoltorio de éxito), firestoreErrors
+    └── validators/                # Esquemas Zod (validan la petición Y alimentan Swagger)
 ```
 
 ---
 
-## 🔑 Configuración de Variables de Entorno
+## 🔑 Variables de entorno
 
-Copie el archivo de plantilla `.env.example` para crear su archivo local `.env`:
+Copia la plantilla y completa los valores. El archivo `.env` está en `.gitignore`: **nunca subas credenciales**.
 
 ```bash
 cp .env.example .env
 ```
 
-Edite `.env` con las configuraciones correspondientes:
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `NODE_ENV` | No | `development` · `production` · `test` |
+| `PORT` / `HOST` | No | Por defecto `3000` / `0.0.0.0` (Render inyecta `PORT`) |
+| `CORS_ORIGIN` | **Sí en producción** | Orígenes permitidos separados por coma (ver [CORS](#-cors)). Por defecto `http://localhost:5173,http://localhost:8080` |
+| `FIRESTORE_COLLECTION_NAME` | No | Colección del dato de la base técnica (por defecto `system_config`) |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Una de las opciones | JSON completo de la cuenta de servicio en una línea (**recomendado en Render**) |
+| `FIREBASE_PROJECT_ID` + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` | Una de las opciones | Credenciales por separado |
+| `FIREBASE_SERVICE_ACCOUNT_PATH` | Una de las opciones | Ruta a un `serviceAccountKey.json` local (ignorado por git) |
+| `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` | No | Emuladores locales de Firebase (no requieren credenciales) |
 
-```ini
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=development
-CORS_ORIGIN=*
-FIRESTORE_COLLECTION_NAME=system_config
-```
-
-### Configuración de Credenciales de Firebase
-
-Existen tres formas soportadas:
-
-1. **Opción 1 (Recomendada para Render y Docker)**:
-   Pegar todo el contenido del JSON de la cuenta de servicio como un solo string en `FIREBASE_SERVICE_ACCOUNT_KEY`:
-   ```ini
-   FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"...","private_key":"..."}
-   ```
-
-2. **Opción 2 (Variables individuales)**:
-   ```ini
-   FIREBASE_PROJECT_ID=tu-proyecto-id
-   FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@tu-proyecto-id.iam.gserviceaccount.com
-   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-   ```
-
-3. **Opción 3 (Archivo local para desarrollo)**:
-   Descargar el archivo `.json` de cuenta de servicio de Firebase Console y configurar:
-   ```ini
-   FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json
-   ```
-
-> ⚠️ **Importante**: El archivo `.gitignore` ya se encuentra configurado para impedir que `.env`, `node_modules/` o cualquier archivo de clave privada `*serviceAccountKey*.json` se suban al repositorio.
+La cuenta de servicio se genera en *Firebase Console → Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada*.
 
 ---
 
-## 💻 Ejecución en Desarrollo Local
+## 💻 Ejecución local
 
-1. **Instalar dependencias**:
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npm run dev        # recarga automática con tsx en http://localhost:3000
+npm run build      # compila a dist/
+npm start          # ejecuta dist/server.js
+```
 
-2. **Iniciar en modo desarrollo (con recarga automática)**:
-   ```bash
-   npm run dev
-   ```
-
-3. **Compilar TypeScript para producción**:
-   ```bash
-   npm run build
-   ```
-
-4. **Iniciar en modo producción (código compilado en `dist/`)**:
-   ```bash
-   npm start
-   ```
+Sin credenciales de Firebase la API arranca igual: `/api/health` responde y los endpoints que usan Firestore o Auth responden **503** con un mensaje claro.
 
 ---
 
-## 🐳 Ejecución con Docker y Docker Compose
+## 🐳 Docker
 
-### Levantar con Docker Compose
 ```bash
-docker-compose up --build
+docker compose up --build     # API en http://localhost:3000 (lee .env si existe)
+docker compose down
 ```
-El servicio estará disponible en `http://localhost:3000`.
 
-### Construir y correr imagen individual con Docker
+O la imagen sola:
+
 ```bash
-# Construir la imagen
 docker build -t backend-api .
-
-# Ejecutar el contenedor pasando las variables de entorno
-docker run -p 3000:3000 --env-file .env --name salon-estudio-api backend-api
+docker run -p 3000:3000 --env-file .env backend-api
 ```
+
+---
+
+## 🧪 Pruebas, lint y CI
+
+```bash
+npm test             # Vitest + Supertest (una vez)
+npm run test:watch   # modo observación
+npm run lint         # ESLint (typescript-eslint)
+npm run typecheck    # tipos de src/ y tests/
+```
+
+Las pruebas **no necesitan Firebase**: usan dobles en memoria ([tests/helpers/fakes.ts](tests/helpers/fakes.ts)) con la misma semántica que las transacciones de Firestore.
+
+| Archivo | Qué comprueba |
+|---|---|
+| `tests/auth.middleware.test.ts` | 401 sin token, con token mal formado, alterado o vencido; 503 si Firebase Auth no responde |
+| `tests/register.test.ts` | Registro (US-01): 201, validación por campo, 409 username/correo, rollback de Auth y **registro simultáneo con el mismo username** |
+| `tests/users.test.ts` | Perfil Google incompleto, elegir username, 403 `PROFILE_INCOMPLETE`, uid tomado del token |
+| `tests/contract.test.ts` | Formato TS-05, JSON inválido, health, Swagger sin referencias rotas |
+| `tests/cors.test.ts` | Orígenes permitidos y bloqueados, comodín de previews, mismo origen, preflight |
+
+**CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) corre `npm ci`, lint, typecheck, build, pruebas y `docker build` en cada pull request y push a `main`/`develop`.
 
 ---
 
 ## ☁️ Despliegue en Render
 
-El backend está preparado para desplegarse como un **Web Service con entorno Docker** en Render:
-
-1. Ingrese a [Render Dashboard](https://dashboard.render.com/).
-2. Cree un **New Web Service** conectado a su repositorio de GitHub (`BackEnd`).
-3. Seleccione la opción de runtime **Docker**.
-4. Configure las variables de entorno en la pestaña **Environment**:
-   - `NODE_ENV`: `production`
-   - `PORT`: `10000` (Render lo inyecta automáticamente)
-   - `HOST`: `0.0.0.0`
-   - `CORS_ORIGIN`: La URL de su frontend en Vercel (ej: `https://salon-estudio.vercel.app` o `*`)
-   - `FIREBASE_SERVICE_ACCOUNT_KEY`: Pegue el JSON completo de su cuenta de servicio de Firebase.
-5. Inicie el despliegue. Render utilizará el `Dockerfile` multi-stage para construir la imagen y verificar la ruta de salud `/api/health`.
+1. *New Web Service* conectado al repositorio `BackEnd`, runtime **Docker** (o usar `render.yaml`).
+2. **Health Check Path:** `/api/health`.
+3. Variables de entorno (pestaña *Environment*):
+   - `NODE_ENV=production`, `HOST=0.0.0.0` (Render asigna `PORT`)
+   - `CORS_ORIGIN` = URL del frontend en Vercel, p. ej. `https://estudiemos.vercel.app` (más el patrón de previews si se usan)
+   - `FIREBASE_SERVICE_ACCOUNT_KEY` = JSON de la cuenta de servicio
+4. Desplegar las reglas de Firestore (una vez, desde esta carpeta): `npx firebase-tools deploy --only firestore:rules --project <id-del-proyecto>`.
 
 ---
 
-## 📖 Documentación Interactiva (Swagger / OpenAPI)
+## 📖 Swagger / OpenAPI
 
-Una vez iniciado el servidor, acceda a la documentación interactiva en su navegador:
-
-- **Swagger UI**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs) (`/docs` y `/api-docs` redirigen aquí)
-- **Especificación OpenAPI (JSON)**: [http://localhost:3000/api/docs.json](http://localhost:3000/api/docs.json)
-
-### Cómo se mantiene la documentación
+- **Swagger UI:** `/api/docs` (local: <http://localhost:3000/api/docs>). `/docs` y `/api-docs` redirigen aquí.
+- **Especificación JSON:** `/api/docs.json`.
+- Las rutas con 🔒 requieren token: usa **Authorize** y pega el ID token (sin la palabra `Bearer`).
 
 La especificación es una sola fuente en TypeScript (no se usan comentarios JSDoc):
 
 | Archivo | Contenido |
 |---|---|
 | `src/docs/swagger.ts` | Ensambla la especificación (info, tags, servidores) |
-| `src/docs/components.ts` | Esquemas comunes, respuestas de error estándar (TS-05) y esquema de seguridad `bearerAuth` |
-| `src/docs/paths/*.paths.ts` | Rutas de cada dominio |
+| `src/docs/components.ts` | Esquemas comunes, respuestas de error estándar (TS-05) y `bearerAuth` |
+| `src/docs/paths/*.paths.ts` | Rutas de cada dominio (`auth`, `users`, `system`) |
 | `src/docs/openapi.helpers.ts` | `fromZod`, `jsonBody`, `successResponse`, `errorRef` |
 
-Los cuerpos de petición se generan con `fromZod()` desde los esquemas de `src/validators/`, que son los mismos que validan la petición real. **Al agregar un endpoint**, agrega su ruta en el archivo `src/docs/paths/<dominio>.paths.ts` correspondiente.
+Los cuerpos de petición se generan con `fromZod()` desde los esquemas de `src/validators/`, **los mismos que validan la petición real**. Al agregar un endpoint, agrega su ruta en `src/docs/paths/<dominio>.paths.ts`.
 
 ---
 
-## 🔌 Endpoints Principales (TS-00)
+## 🔌 Endpoints
 
-| Método | Endpoint | Descripción |
-|---|---|---|
-| `GET` | `/` | Información general de la API y enlaces a la documentación |
-| `GET` | `/api/health` | Estado del servicio y diagnóstico de conectividad a Firestore |
-| `GET` | `/api/archetype/data` | **Endpoint TS-00**: Lee el documento de configuración desde Firestore |
-| `POST` | `/api/archetype/seed` | Inicializa o actualiza los datos de prueba en Firestore para comprobar persistencia |
+| Método | Ruta | Auth | Historia | Descripción |
+|---|---|---|---|---|
+| `POST` | `/api/auth/register` | — | US-01 | Registro manual: crea la cuenta en Auth y el perfil completo en Firestore |
+| `GET` | `/api/users/me` | 🔒 | US-02, US-03 | Perfil de la sesión. En el primer ingreso con Google crea el perfil **incompleto** |
+| `POST` | `/api/users/me/username` | 🔒 | US-02 | Elegir username y completar el perfil |
+| `GET` | `/api/health` | — | TS-00 | Estado de la API y de Firestore (health check de Render) |
+| `GET` | `/api/archetype/data` | — | TS-00 | Dato de la base técnica leído de Firestore |
+| `POST` | `/api/archetype/seed` | 🔒 | TS-00 | Crea/actualiza el dato de la base técnica |
+| `GET` | `/api/errors/demo-{400,401,404}` | — | TS-05 | Demostración del formato de errores |
 
-### Ejemplo de Respuesta Exitosa (`GET /api/archetype/data`)
+Las respuestas exitosas usan el envoltorio `{ "success": true, "message": "...", "data": { ... }, "timestamp": "..." }`.
 
-```json
-{
-  "success": true,
-  "message": "Dato leído exitosamente desde Firestore",
-  "data": {
-    "id": "sprint-0",
-    "projectName": "Salón de Estudio Colaborativo en Tiempo Real",
-    "sprint": "Sprint 0: Fundamentación UX y Base Técnica End-to-End",
-    "version": "1.0.0",
-    "description": "Base técnica operativa y comunicada con Firestore para el Sprint 0 (TS-00).",
-    "databaseStatus": "connected",
-    "environment": "production",
-    "updatedAt": "2026-11-05T17:30:00.000Z",
-    "features": [
-      "Arquitectura por capas (Rutas, Lógica y Acceso a Datos)",
-      "Lectura y persistencia con Firebase Firestore",
-      "Contenedorización con Docker y Docker Compose",
-      "Despliegue automatizado en Render",
-      "Documentación interactiva con Swagger OpenAPI",
-      "Manejo estandarizado y claro de errores de red/base de datos"
-    ]
-  },
-  "timestamp": "2026-11-05T17:30:00.000Z"
-}
-```
+### Reglas de validación (US-01, servidor)
+
+| Campo | Regla |
+|---|---|
+| `firstName`, `lastName` | Obligatorios, máximo 50 caracteres |
+| `username` | 3 a 20 caracteres: letras, números, `.` o `_`, sin espacios. Único **sin distinguir mayúsculas** (`Ana_01` = `ana_01`) |
+| `email` | Formato válido; se guarda en minúsculas |
+| `password` | Mínimo 8 caracteres, al menos una letra y un número |
+| `avatar` | Uno del catálogo `avatar-01` … `avatar-08` ([src/constants/avatars.ts](src/constants/avatars.ts)) |
+
+Campos extra (por ejemplo, un `uid` enviado por el cliente) se rechazan con 400.
 
 ---
 
-## 🛡️ Manejo de Errores
+## 🔐 Autenticación
 
-Si Firestore no se encuentra configurado, no responde o las credenciales son inválidas, la API intercepta la falla y responde con un código de estado adecuado (`503 Service Unavailable` o `500`) y un cuerpo JSON con mensaje amigable:
+1. El **login ocurre en el frontend** con Firebase Authentication (correo/contraseña o Google).
+2. El frontend envía el ID token en cada petición privada: `Authorization: Bearer <token>` (se obtiene con `await user.getIdToken()`; el SDK lo renueva solo).
+3. El middleware [authenticate](src/middlewares/authenticate.ts) verifica el token con Firebase Admin SDK y deja el usuario en `req.auth`. **El uid siempre sale del token**, nunca del cuerpo de la petición.
+4. Sin token, o con un token mal formado, alterado o vencido → **401 `UNAUTHENTICATED`**.
+5. [requireCompleteProfile](src/middlewares/requireCompleteProfile.ts) responde **403 `PROFILE_INCOMPLETE`** mientras un usuario de Google no haya elegido username. Se aplicará a las rutas privadas del Sprint 2 en adelante (salas, perfil).
+
+**Flujo de registro manual (US-01):** `POST /api/auth/register` → 201 → el frontend llama `signInWithEmailAndPassword(email, password)` → `GET /api/users/me`.
+
+**Flujo con Google (US-02):** `signInWithPopup(GoogleAuthProvider)` → `GET /api/users/me`. Si `profileComplete` es `false`, se lleva a la persona a elegir username → `POST /api/users/me/username`.
+
+---
+
+## 🗄️ Modelo de datos en Firestore
+
+| Documento | Campos |
+|---|---|
+| `users/{uid}` | `firstName`, `lastName`, `username` (o `null`), `usernameLower`, `email`, `avatar`, `provider` (`password` · `google`), `profileComplete`, `createdAt`, `updatedAt` |
+| `usernames/{usernameLower}` | `uid`, `username`, `createdAt`. Es la **reserva** que garantiza la unicidad |
+| `system_config/sprint-0` | Dato de la base técnica (TS-00) |
+
+El perfil y la reserva del username se escriben en la **misma transacción** con `create()`: si dos personas envían el mismo username al mismo tiempo, solo una lo obtiene y la otra recibe 409. Si falla la escritura del perfil después de crear la cuenta de Auth, la cuenta se elimina (rollback) para no dejar cuentas a medias.
+
+[firestore.rules](firestore.rules) niega todo acceso desde los SDK de cliente. La API usa Admin SDK, que no está sujeto a esas reglas.
+
+---
+
+## 🛡️ Contrato de errores (TS-05)
+
+Todos los errores responden con el mismo formato, en español y sin detalles internos:
 
 ```json
 {
-  "success": false,
-  "message": "El servicio de Firestore no se encuentra disponible temporalmente o la red no responde.",
   "error": {
-    "code": "FIRESTORE_ERROR",
-    "message": "Permisos insuficientes o base de datos inaccesible",
-    "details": { ... }
-  },
-  "timestamp": "2026-11-05T17:30:00.000Z"
+    "code": "USERNAME_TAKEN",
+    "message": "El nombre de usuario ya se encuentra registrado por otro estudiante.",
+    "fields": { "username": "Este nombre de usuario ya está en uso, prueba con otro." }
+  }
 }
 ```
 
+| HTTP | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Datos inválidos (con `fields` por campo) o JSON mal formado |
+| 401 | `UNAUTHENTICATED` | Sin token o token inválido/vencido |
+| 403 | `FORBIDDEN` · `PROFILE_INCOMPLETE` | Sin permisos · falta elegir username |
+| 404 | `NOT_FOUND` · `ROOM_NOT_FOUND` | Recurso o ruta inexistente |
+| 409 | `USERNAME_TAKEN` · `EMAIL_IN_USE` | Username o correo ya en uso |
+| 503 | `DATABASE_ERROR` · `SERVICE_UNAVAILABLE` | Firestore o Firebase Auth no disponibles |
+| 500 | `INTERNAL` | Error inesperado |
+
+Los errores 4xx se registran en el log como aviso de una línea; solo los 5xx se registran como error.
+
+---
+
+## 🌐 CORS
+
+`CORS_ORIGIN` es una lista de orígenes **explícitos** separados por coma. El comodín total `*` **no se acepta** (se ignora con una advertencia en el log).
+
+```ini
+CORS_ORIGIN=https://estudiemos.vercel.app,https://frontend-*-miniproyecto-2pi.vercel.app
+```
+
+- `*` dentro de **un** segmento del host sirve para las previews de Vercel; no abarca puntos (no permite otro dominio).
+- Siempre se permiten las peticiones sin `Origin` (curl, Postman, health checks) y las del mismo origen del servidor (Swagger UI).
+- Un origen no permitido no recibe `Access-Control-Allow-Origin` y el navegador bloquea la respuesta.
