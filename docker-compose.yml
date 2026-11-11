@@ -1,3 +1,20 @@
+# ==============================================================================
+# Backend API en local con Docker
+#
+# Uso (desde BackEnd/):
+#   docker compose up --build      # levanta la API en http://localhost:3000
+#   docker compose down
+#
+# Swagger: http://localhost:3000/api/docs
+#
+# Credenciales de Firebase: en .env (copiar desde .env.example). Sin ellas la API
+# arranca y responde /api/health, pero Firestore y la verificación de tokens
+# responden 503. Producción NO usa este archivo: Render despliega el Dockerfile.
+#
+# Nota: el healthcheck usa 127.0.0.1 y no 'localhost': en Alpine 'localhost'
+# resuelve primero a IPv6 (::1) y el servidor escucha en 0.0.0.0 (IPv4).
+# ==============================================================================
+
 services:
   backend-api:
     build:
@@ -8,16 +25,16 @@ services:
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - PORT=${PORT:-3000}
-      - HOST=0.0.0.0
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173,http://localhost:8080}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-3000}
+      HOST: 0.0.0.0
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173,http://localhost:8080}
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:$${PORT:-3000}/api/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
-
