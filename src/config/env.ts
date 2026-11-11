@@ -29,7 +29,8 @@ export const env: EnvConfig = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parsePort(process.env.PORT),
   HOST: process.env.HOST || '0.0.0.0',
-  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  // Lista separada por comas. '*' no se acepta (ver config/cors.ts).
+  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:8080',
   FIRESTORE_COLLECTION_NAME: process.env.FIRESTORE_COLLECTION_NAME || 'system_config',
   FIREBASE: {
     projectId: process.env.FIREBASE_PROJECT_ID,
