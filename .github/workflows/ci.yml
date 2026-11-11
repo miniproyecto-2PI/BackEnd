@@ -1,0 +1,49 @@
+name: CI Backend API
+
+# TS-07: lint, chequeo de tipos, build y pruebas en cada pull request.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    name: Lint, tipos, build y pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20 (misma versión que el Dockerfile)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Chequeo de tipos (src + tests)
+        run: npm run typecheck
+
+      - name: Compilar TypeScript
+        run: npm run build
+
+      # Las pruebas usan dobles en memoria: no necesitan credenciales de Firebase.
+      - name: Pruebas (Vitest + Supertest)
+        run: npm test
+
+      - name: Construir imagen Docker
+        run: docker build -t backend-api:ci .
