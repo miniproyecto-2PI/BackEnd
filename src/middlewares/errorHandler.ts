@@ -32,10 +32,13 @@ export const errorHandler = (
 
   const fields = isAppError ? err.fields || null : null;
 
-  // Registrar error internamente en consola
-  console.error(`[Error] [${errorCode}] (${statusCode}): ${err.message}`);
-  if (err.stack && env.NODE_ENV !== 'production') {
-    console.error(err.stack);
+  // 4xx = error esperado del cliente: una línea de advertencia.
+  // 5xx = falla del servidor: error con stack (solo fuera de producción).
+  if (statusCode < 500) {
+    console.warn(`[Aviso] [${errorCode}] (${statusCode}): ${err.message}`);
+  } else {
+    console.error(`[Error] [${errorCode}] (${statusCode}): ${err.message}`);
+    if (err.stack && env.NODE_ENV !== 'production') console.error(err.stack);
   }
 
   // Respuesta uniforme según TS-05: { error: { code, message, fields } }

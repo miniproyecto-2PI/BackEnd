@@ -79,7 +79,9 @@ export class UsernameTakenError extends AppError {
     message = 'El nombre de usuario ya se encuentra registrado por otro estudiante.',
     field = 'username'
   ) {
-    super(message, 409, 'USERNAME_TAKEN', { [field]: 'Este nombre de usuario no está disponible.' });
+    super(message, 409, 'USERNAME_TAKEN', {
+      [field]: 'Este nombre de usuario ya está en uso, prueba con otro.',
+    });
   }
 }
 
@@ -88,7 +90,9 @@ export class EmailInUseError extends AppError {
     message = 'El correo electrónico ya está registrado con otra cuenta.',
     field = 'email'
   ) {
-    super(message, 409, 'EMAIL_IN_USE', { [field]: 'Este correo ya tiene una cuenta asociada.' });
+    super(message, 409, 'EMAIL_IN_USE', {
+      [field]: 'Este correo ya tiene una cuenta. ¿Quieres iniciar sesión?',
+    });
   }
 }
 

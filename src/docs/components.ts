@@ -96,6 +96,33 @@ export const components = {
       },
     },
 
+    UserProfile: {
+      type: 'object',
+      description: 'Perfil del estudiante guardado en Firestore (users/{uid}).',
+      properties: {
+        uid: { type: 'string', example: 'Xk3P9aBc1dEfGh2IjKlMnOpQ' },
+        firstName: { type: 'string', example: 'Ana María' },
+        lastName: { type: 'string', example: 'Pérez Gómez' },
+        username: { type: 'string', nullable: true, example: 'Ana_01' },
+        usernameLower: { type: 'string', nullable: true, example: 'ana_01' },
+        email: { type: 'string', format: 'email', example: 'ana.perez@correounivalle.edu.co' },
+        avatar: {
+          type: 'string',
+          nullable: true,
+          description: 'Id del catálogo (registro manual) o URL de la foto de Google.',
+          example: 'avatar-03',
+        },
+        provider: { type: 'string', enum: ['password', 'google'], example: 'password' },
+        profileComplete: {
+          type: 'boolean',
+          description: 'false mientras un usuario de Google no haya elegido username.',
+          example: true,
+        },
+        createdAt: { type: 'string', format: 'date-time', example: '2026-11-10T15:00:00.000Z' },
+        updatedAt: { type: 'string', format: 'date-time', example: '2026-11-10T15:00:00.000Z' },
+      },
+    },
+
     HealthResponse: {
       type: 'object',
       properties: {
