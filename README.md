@@ -219,8 +219,21 @@ El backend está preparado para desplegarse como un **Web Service con entorno Do
 
 Una vez iniciado el servidor, acceda a la documentación interactiva en su navegador:
 
-- **Swagger UI**: [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
-- **Especificación OpenAPI (JSON)**: [http://localhost:3000/api-docs.json](http://localhost:3000/api-docs.json)
+- **Swagger UI**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs) (`/docs` y `/api-docs` redirigen aquí)
+- **Especificación OpenAPI (JSON)**: [http://localhost:3000/api/docs.json](http://localhost:3000/api/docs.json)
+
+### Cómo se mantiene la documentación
+
+La especificación es una sola fuente en TypeScript (no se usan comentarios JSDoc):
+
+| Archivo | Contenido |
+|---|---|
+| `src/docs/swagger.ts` | Ensambla la especificación (info, tags, servidores) |
+| `src/docs/components.ts` | Esquemas comunes, respuestas de error estándar (TS-05) y esquema de seguridad `bearerAuth` |
+| `src/docs/paths/*.paths.ts` | Rutas de cada dominio |
+| `src/docs/openapi.helpers.ts` | `fromZod`, `jsonBody`, `successResponse`, `errorRef` |
+
+Los cuerpos de petición se generan con `fromZod()` desde los esquemas de `src/validators/`, que son los mismos que validan la petición real. **Al agregar un endpoint**, agrega su ruta en el archivo `src/docs/paths/<dominio>.paths.ts` correspondiente.
 
 ---
 
