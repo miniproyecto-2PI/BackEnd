@@ -102,6 +102,15 @@ export class FirestoreError extends AppError {
   }
 }
 
+// 503 - Servicio externo (Firebase Authentication) no disponible o sin configurar
+export class ServiceUnavailableError extends AppError {
+  constructor(
+    message = 'El servicio de autenticación no está disponible temporalmente. Intenta de nuevo en unos minutos.'
+  ) {
+    super(message, 503, 'SERVICE_UNAVAILABLE');
+  }
+}
+
 export class InternalError extends AppError {
   constructor(message = 'Ha ocurrido un error inesperado en el servidor.') {
     super(message, 500, 'INTERNAL');

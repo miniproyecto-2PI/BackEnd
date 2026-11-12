@@ -17,6 +17,7 @@ export interface EnvConfig {
     serviceAccountKey?: string;
     serviceAccountPath?: string;
     emulatorHost?: string;
+    authEmulatorHost?: string;
   };
 }
 
@@ -39,6 +40,7 @@ export const env: EnvConfig = {
     serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
     serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS,
     emulatorHost: process.env.FIRESTORE_EMULATOR_HOST,
+    authEmulatorHost: process.env.FIREBASE_AUTH_EMULATOR_HOST,
   },
 };
 

@@ -13,6 +13,7 @@ const ERROR_CODES = [
   'USERNAME_TAKEN',
   'EMAIL_IN_USE',
   'DATABASE_ERROR',
+  'SERVICE_UNAVAILABLE',
   'INTERNAL',
 ];
 
@@ -147,7 +148,8 @@ export const components = {
       ),
     },
     ServiceUnavailable: {
-      description: 'Base de datos o servicio de identidad no disponible (503 DATABASE_ERROR)',
+      description:
+        'Base de datos (503 DATABASE_ERROR) o Firebase Authentication (503 SERVICE_UNAVAILABLE) no disponibles',
       content: errorExample('DATABASE_ERROR', 'El servicio de base de datos no está disponible temporalmente.'),
     },
     InternalError: {

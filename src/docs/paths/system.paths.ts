@@ -38,9 +38,10 @@ export const systemPaths = {
   '/api/archetype/seed': {
     post: {
       tags: [TAG_ARCHETYPE],
-      summary: 'Crea o actualiza el documento base en Firestore',
+      summary: 'Crea o actualiza el documento base en Firestore 🔒',
       description:
-        'Permite modificar el dato de la base técnica para comprobar que el frontend refleja el cambio al recargar.',
+        'Permite modificar el dato de la base técnica para comprobar que el frontend refleja el cambio al recargar. Requiere sesión.',
+      security: [{ bearerAuth: [] }],
       requestBody: jsonBody(
         seedArchetypeSchema,
         { description: 'Texto actualizado para prueba de persistencia' },
@@ -49,6 +50,7 @@ export const systemPaths = {
       responses: {
         '201': successResponse('Dato de prueba creado/actualizado correctamente en Firestore', archetypeRef),
         '400': errorRef('BadRequest'),
+        '401': errorRef('Unauthorized'),
         '503': errorRef('ServiceUnavailable'),
       },
     },

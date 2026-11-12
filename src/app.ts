@@ -6,12 +6,18 @@ import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { createCorsDelegate, parseAllowedOrigins } from './config/cors';
 import { swaggerSpec } from './docs/swagger';
-import apiRoutes from './routes';
+import { createApiRouter } from './routes';
+import { AppDeps, buildDeps } from './container';
 import { notFoundHandler } from './middlewares/notFoundHandler';
 import { errorHandler } from './middlewares/errorHandler';
 
-export function createApp(): Application {
+/**
+ * Crea la aplicación Express. `overrides` permite inyectar dobles de prueba
+ * (verificador de tokens, proveedor de identidad, repositorio de usuarios).
+ */
+export function createApp(overrides: Partial<AppDeps> = {}): Application {
   const app = express();
+  const deps = buildDeps(overrides);
 
   // 1. Cabeceras de seguridad
   app.use(
@@ -78,7 +84,7 @@ export function createApp(): Application {
   });
 
   // 7. Montaje de rutas de la API bajo el prefijo /api
-  app.use('/api', apiRoutes);
+  app.use('/api', createApiRouter(deps));
 
   // 8. Manejo de rutas 404 (no encontradas)
   app.use(notFoundHandler);

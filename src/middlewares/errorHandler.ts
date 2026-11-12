@@ -9,12 +9,24 @@ export const errorHandler = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction
 ): void => {
+  // Cuerpo JSON mal formado (lo lanza express.json antes de llegar a las rutas)
+  if ((err as { type?: string }).type === 'entity.parse.failed') {
+    res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'El cuerpo de la petición no es un JSON válido.',
+        fields: null,
+      },
+    });
+    return;
+  }
+
   const isAppError = err instanceof AppError;
   const statusCode = isAppError ? err.statusCode : 500;
   const errorCode = isAppError ? err.code : 'INTERNAL';
 
   // Mensaje en español sin detalles internos del servidor
-  let message = isAppError
+  const message = isAppError
     ? err.message
     : 'Ha ocurrido un error inesperado en el servidor. Por favor intente más tarde.';
 
