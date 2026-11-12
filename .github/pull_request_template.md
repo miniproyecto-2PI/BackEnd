@@ -2,6 +2,8 @@
 <!-- Describe brevemente qué hace este PR, la funcionalidad que añade o el problema que resuelve. -->
 <!-- Incluye referencias a Historias de Usuario (HU), tareas o Criterios de Aceptación si aplica. -->
 
+**Historia:** <!-- p. ej. US-01 — Registro manual --> · **Rama:** `feature/US-XX-...` · **Sprint:** <!-- N -->
+
 
 ## 🛠️ Tipo de PR (PR Type)
 - [ ] 🚀 **Feature** (Nueva funcionalidad)
@@ -34,6 +36,8 @@
 <!-- Marca las validaciones ejecutadas antes de abrir el PR -->
 - [ ] `npm run build` (Compilación de TypeScript sin errores)
 - [ ] `npm run typecheck` (Chequeo estricto de tipos pasando)
+- [ ] `npm run lint` (ESLint sin errores)
+- [ ] `npm test` (Pruebas Vitest pasando; CI en verde)
 - [ ] Conexión y lectura con Firestore verificada
 - [ ] Swagger UI validado en `/api/docs` y esquema `/api/docs.json`
 - [ ] Respuestas de error estructuradas (503 / 404 / 400)
@@ -61,4 +65,12 @@ curl -X GET http://localhost:3000/api/archetype/data
 ### Pruebas desde Swagger UI:
 - [ ] Probado interactivamente en `http://localhost:3000/api/docs`
 
-<!-- Adjunta aquí capturas de pantalla de Swagger, respuestas JSON o evidencias si aplica -->
+## 📸 Evidencias
+<!-- Capturas de Swagger, respuestas JSON, Firestore o logs de Render (con la URL de producción visible cuando aplique) -->
+
+
+## 🤖 Uso de IA
+<!-- Obligatorio según el enunciado: declara si usaste IA, para qué y qué revisaste tú. Quien firma el PR debe poder explicar el código. -->
+- [ ] No se usó IA
+- [ ] Se usó IA: <!-- herramienta y en qué partes -->
+
