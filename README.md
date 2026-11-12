@@ -87,7 +87,7 @@ BackEnd/
     ├── middlewares/               # authenticate, requireCompleteProfile, validate, errorHandler, notFound
     ├── repositories/              # archetype, user (+ interfaces/)
     ├── routes/                    # index (createApiRouter), auth, users, archetype, health, errorDemo
-    ├── services/                  # user.service, identity.provider, token.verifier, archetype
+    ├── services/                  # user.service, identity.provider, token.verifier, image.storage (Cloudinary), archetype
     ├── types/                     # errors, user, archetype, express.d.ts
     ├── utils/                     # response (envoltorio de éxito), firestoreErrors
     └── validators/                # Esquemas Zod (validan la petición Y alimentan Swagger)
@@ -113,6 +113,8 @@ cp .env.example .env
 | `FIREBASE_PROJECT_ID` + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` | Una de las opciones | Credenciales por separado |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | Una de las opciones | Ruta a un `serviceAccountKey.json` local (ignorado por git) |
 | `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` | No | Emuladores locales de Firebase (no requieren credenciales) |
+| `CLOUDINARY_URL` | Para subir avatares | `cloudinary://<api_key>:<api_secret>@<cloud_name>` (o `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`). Sin ella, `POST /api/users/me/avatar` responde 503 |
+| `CLOUDINARY_AVATAR_FOLDER` | No | Carpeta de los avatares (por defecto `estudiemos/avatars`) |
 
 La cuenta de servicio se genera en *Firebase Console → Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada*.
 
@@ -165,6 +167,7 @@ Las pruebas **no necesitan Firebase**: usan dobles en memoria ([tests/helpers/fa
 | `tests/users.test.ts` | Perfil Google incompleto, elegir username, 403 `PROFILE_INCOMPLETE`, uid tomado del token |
 | `tests/contract.test.ts` | Formato TS-05, JSON inválido, health, Swagger sin referencias rotas |
 | `tests/cors.test.ts` | Orígenes permitidos y bloqueados, comodín de previews, mismo origen, preflight |
+| `tests/avatar.test.ts` | Subida de imagen: formatos, contenido falso, más de 2 MB, sin archivo, 401, 403, 503 de Cloudinary |
 
 **CI:** [.github/workflows/ci.yml](.github/workflows/ci.yml) corre `npm ci`, lint, typecheck, build, pruebas y `docker build` en cada pull request y push a `main`/`develop`.
 
@@ -208,6 +211,7 @@ Los cuerpos de petición se generan con `fromZod()` desde los esquemas de `src/v
 | `POST` | `/api/auth/register` | — | US-01 | Registro manual: crea la cuenta en Auth y el perfil completo en Firestore |
 | `GET` | `/api/users/me` | 🔒 | US-02, US-03 | Perfil de la sesión. En el primer ingreso con Google crea el perfil **incompleto** |
 | `POST` | `/api/users/me/username` | 🔒 | US-02 | Elegir username y completar el perfil |
+| `POST` | `/api/users/me/avatar` | 🔒 | US-01 | Subir imagen de perfil propia (multipart, campo `avatar`; requiere perfil completo) |
 | `GET` | `/api/health` | — | TS-00 | Estado de la API y de Firestore (health check de Render) |
 | `GET` | `/api/archetype/data` | — | TS-00 | Dato de la base técnica leído de Firestore |
 | `POST` | `/api/archetype/seed` | 🔒 | TS-00 | Crea/actualiza el dato de la base técnica |
@@ -226,6 +230,21 @@ Las respuestas exitosas usan el envoltorio `{ "success": true, "message": "...",
 | `avatar` | Uno del catálogo `avatar-01` … `avatar-08` ([src/constants/avatars.ts](src/constants/avatars.ts)) |
 
 Campos extra (por ejemplo, un `uid` enviado por el cliente) se rechazan con 400.
+
+### Imagen de perfil propia (Cloudinary)
+
+En el registro se elige un avatar del catálogo (obligatorio). Después de iniciar sesión, la persona puede subir su propia foto con `POST /api/users/me/avatar`:
+
+| Regla | Valor |
+|---|---|
+| Envío | `multipart/form-data`, un solo archivo en el campo `avatar` |
+| Formatos | JPG, PNG o WebP. Se verifica el **contenido real** (primeros bytes), no solo el tipo declarado |
+| Tamaño máximo | 2 MB |
+| Procesamiento | Recorte a 512×512 centrado en el contenido, WebP, calidad automática |
+| Almacenamiento | Cloudinary, `estudiemos/avatars/{uid}` (una imagen por usuario; subir otra la reemplaza) |
+| Requisitos | Sesión (401) y perfil completo (403 `PROFILE_INCOMPLETE`) |
+
+El campo `avatar` del perfil queda como URL `https://res.cloudinary.com/...`. El frontend muestra una imagen si `avatar` empieza por `https://` (foto propia o de Google) y, si no, el avatar del catálogo. El `api_secret` de Cloudinary solo vive en el servidor.
 
 ---
 

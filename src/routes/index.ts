@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { AppDeps } from '../container';
 import { createAuthenticate } from '../middlewares/authenticate';
+import { createRequireCompleteProfile } from '../middlewares/requireCompleteProfile';
 import { UserService } from '../services/user.service';
 import healthRoutes from './health.routes';
 import errorDemoRoutes from './errorDemo.routes';
@@ -12,13 +13,14 @@ import { createUsersRouter } from './users.routes';
 export function createApiRouter(deps: AppDeps): Router {
   const router = Router();
   const authenticate = createAuthenticate(deps.tokenVerifier);
-  const userService = new UserService(deps.userRepository, deps.identityProvider);
+  const requireCompleteProfile = createRequireCompleteProfile(deps.userRepository);
+  const userService = new UserService(deps.userRepository, deps.identityProvider, deps.imageStorage);
 
   router.use('/health', healthRoutes);
   router.use('/archetype', createArchetypeRouter(authenticate));
   router.use('/errors', errorDemoRoutes);
   router.use('/auth', createAuthRouter(userService));
-  router.use('/users', createUsersRouter(userService, authenticate));
+  router.use('/users', createUsersRouter(userService, authenticate, requireCompleteProfile));
 
   return router;
 }

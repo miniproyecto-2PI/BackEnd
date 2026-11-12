@@ -1,5 +1,6 @@
 import { IUserRepository } from '../repositories/interfaces/user.repository.interface';
 import { IdentityProvider } from './identity.provider';
+import { ImageStorage } from './image.storage';
 import { AuthUser, UserProfile } from '../types/user.types';
 import { NotFoundError, UsernameTakenError, ValidationError } from '../types/errors.types';
 import { RegisterInput } from '../validators/user.schemas';
@@ -26,7 +27,8 @@ export interface MeResult {
 export class UserService {
   constructor(
     private readonly users: IUserRepository,
-    private readonly identity: IdentityProvider
+    private readonly identity: IdentityProvider,
+    private readonly images: ImageStorage
   ) {}
 
   /**
@@ -95,6 +97,15 @@ export class UserService {
       provider: 'google',
     });
     return { profile, created: true };
+  }
+
+  /**
+   * Imagen de perfil propia: sube a Cloudinary (reemplaza la anterior del mismo uid)
+   * y guarda la URL en users/{uid}.avatar. El archivo ya llega validado por uploadAvatar.
+   */
+  async updateAvatar(uid: string, image: Buffer): Promise<UserProfile> {
+    const { url } = await this.images.uploadAvatar(uid, image);
+    return this.users.updateAvatar(uid, url);
   }
 
   /** Elegir username para completar el perfil (US-02). Misma unicidad que US-01. */
