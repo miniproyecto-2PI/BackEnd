@@ -5,6 +5,10 @@ import { ValidationError } from '../types/errors.types';
 /**
  * Mensajes por defecto en español para los casos que un esquema no personaliza.
  * Los esquemas de src/validators definen mensajes propios para las reglas de negocio.
+ *
+ * Se instala como mapa GLOBAL (z.setErrorMap): en Zod 3 el mapa global tiene menor
+ * prioridad que los mensajes del esquema (required_error, errorMap, .min(n, msg)),
+ * mientras que un mapa pasado a safeParse() los sobrescribiría.
  */
 export const spanishErrorMap: ZodErrorMap = (issue, ctx) => {
   switch (issue.code) {
@@ -28,6 +32,8 @@ export const spanishErrorMap: ZodErrorMap = (issue, ctx) => {
   }
 };
 
+z.setErrorMap(spanishErrorMap);
+
 /** Convierte los issues de Zod en { campo: mensaje } (primer mensaje por campo). */
 export function zodIssuesToFields(error: ZodError): Record<string, string> {
   const fields: Record<string, string> = {};
@@ -46,7 +52,7 @@ export function zodIssuesToFields(error: ZodError): Record<string, string> {
 export const validateBody =
   (schema: ZodTypeAny) =>
   (req: Request, _res: Response, next: NextFunction): void => {
-    const result = schema.safeParse(req.body ?? {}, { errorMap: spanishErrorMap });
+    const result = schema.safeParse(req.body ?? {});
     if (!result.success) {
       return next(
         new ValidationError(
