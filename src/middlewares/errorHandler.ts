@@ -6,7 +6,7 @@ export const errorHandler = (
   err: Error | AppError,
   _req: Request,
   res: Response<StandardErrorResponse>,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // Express reconoce un manejador de errores por tener 4 parámetros: _next es obligatorio
   _next: NextFunction
 ): void => {
   // Cuerpo JSON mal formado (lo lanza express.json antes de llegar a las rutas)

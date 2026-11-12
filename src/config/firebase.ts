@@ -26,7 +26,8 @@ function buildAppOptions(): AppOptions | null {
       return { credential: cert(JSON.parse(env.FIREBASE.serviceAccountKey)), projectId: env.FIREBASE.projectId };
     } catch (parseErr) {
       throw new Error(
-        `La variable FIREBASE_SERVICE_ACCOUNT_KEY contiene un JSON inválido: ${(parseErr as Error).message}`
+        `La variable FIREBASE_SERVICE_ACCOUNT_KEY contiene un JSON inválido: ${(parseErr as Error).message}`,
+        { cause: parseErr }
       );
     }
   }
