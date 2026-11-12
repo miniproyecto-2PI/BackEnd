@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
+import { createCorsDelegate, parseAllowedOrigins } from './config/cors';
 import { swaggerSpec } from './docs/swagger';
 import apiRoutes from './routes';
 import { notFoundHandler } from './middlewares/notFoundHandler';
@@ -19,23 +20,12 @@ export function createApp(): Application {
     })
   );
 
-  // 2. Configuración de CORS
-  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
-  app.use(
-    cors({
-      origin: (origin, callback) => {
-        // Permitir solicitudes sin origen (Swagger UI, curl, Postman, SSR)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(null, true);
-      },
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-    })
-  );
+  // Render (y Docker con proxy) termina TLS antes de Express: confiar en el primer proxy
+  // para que req.protocol refleje https y la comparación de mismo origen funcione.
+  app.set('trust proxy', 1);
+
+  // 2. Configuración de CORS restringida a los orígenes de CORS_ORIGIN (ver config/cors.ts)
+  app.use(cors(createCorsDelegate(parseAllowedOrigins(env.CORS_ORIGIN))));
 
   // 3. Parseo de cuerpo HTTP
   app.use(express.json());

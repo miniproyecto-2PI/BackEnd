@@ -15,8 +15,9 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
+      # URL(s) del frontend en Vercel, separadas por coma. Se configura en el panel de Render.
       - key: CORS_ORIGIN
-        value: "*"
+        sync: false
       - key: FIRESTORE_COLLECTION_NAME
         value: system_config
       # Variables de Firebase (se configuran en el panel de Render):
