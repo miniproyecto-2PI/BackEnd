@@ -96,6 +96,13 @@ export class EmailInUseError extends AppError {
   }
 }
 
+// 429 - Demasiados intentos (inicio de sesión, renovación de sesión)
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Hiciste demasiados intentos. Espera unos minutos e intenta de nuevo.') {
+    super(message, 429, 'TOO_MANY_REQUESTS');
+  }
+}
+
 // 503 / 500 - Base de Datos / Interno
 export class FirestoreError extends AppError {
   constructor(

@@ -18,7 +18,21 @@ export interface EnvConfig {
     serviceAccountPath?: string;
     emulatorHost?: string;
     authEmulatorHost?: string;
+    /**
+     * Clave de API Web del proyecto (Configuración del proyecto -> General). Solo vive en el
+     * servidor: la usa la API para iniciar sesión con la REST API de Firebase Authentication.
+     */
+    webApiKey?: string;
   };
+  /** OAuth 2.0 de Google para el inicio de sesión por redirección (GET /api/auth/google). */
+  GOOGLE_OAUTH: {
+    clientId?: string;
+    clientSecret?: string;
+    /** URL pública del callback de la API, registrada en Google Cloud Console. */
+    redirectUri?: string;
+  };
+  /** Página del frontend que recibe el resultado del ingreso con Google (?code= o ?error=). */
+  FRONTEND_OAUTH_CALLBACK_URL: string;
   CLOUDINARY: {
     /** cloudinary://<api_key>:<api_secret>@<cloud_name> (alternativa a las 3 variables) */
     url?: string;
@@ -50,7 +64,15 @@ export const env: EnvConfig = {
     serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS,
     emulatorHost: process.env.FIRESTORE_EMULATOR_HOST,
     authEmulatorHost: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+    webApiKey: process.env.FIREBASE_WEB_API_KEY,
   },
+  GOOGLE_OAUTH: {
+    clientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_OAUTH_REDIRECT_URI,
+  },
+  FRONTEND_OAUTH_CALLBACK_URL:
+    process.env.FRONTEND_OAUTH_CALLBACK_URL || 'http://localhost:5173/auth/google/callback',
   CLOUDINARY: {
     url: process.env.CLOUDINARY_URL,
     cloudName: process.env.CLOUDINARY_CLOUD_NAME,

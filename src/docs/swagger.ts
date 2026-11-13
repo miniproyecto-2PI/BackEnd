@@ -19,8 +19,8 @@ export const swaggerSpec = {
 API REST del MiniProyecto 2: **Salón de Estudio Colaborativo en Tiempo Real** (Node.js + TypeScript, arquitectura por capas, Firestore).
 
 ### Autenticación
-Las rutas con candado 🔒 requieren el **ID token de Firebase** en \`Authorization: Bearer <token>\`.
-Use el botón **Authorize** para probarlas desde aquí.
+El frontend **no usa el SDK de Firebase**: inicia sesión con \`POST /api/auth/login\` (o Google por redirección en \`GET /api/auth/google\`) y recibe \`data.session.idToken\`.
+Las rutas con candado 🔒 requieren ese token en \`Authorization: Bearer <token>\`. Use el botón **Authorize** para probarlas desde aquí.
 
 ### Contrato de errores (TS-05)
 Todos los errores responden \`{ "error": { "code", "message", "fields" } }\` con mensajes en español y sin detalles internos.
@@ -32,7 +32,7 @@ Todos los errores responden \`{ "error": { "code", "message", "fields" } }\` con
     {
       name: TAG_AUTH,
       description:
-        'Registro e inicio de sesión. El login ocurre en el frontend con Firebase Auth; la API verifica el ID token en cada ruta privada (401 sin token).',
+        'Registro, inicio y cierre de sesión hechos por la API (correo/contraseña y Google por redirección OAuth 2.0). La API verifica el ID token en cada ruta privada (401 sin token).',
     },
     {
       name: TAG_USERS,
