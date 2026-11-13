@@ -17,6 +17,16 @@ export interface EnvConfig {
     serviceAccountKey?: string;
     serviceAccountPath?: string;
     emulatorHost?: string;
+    authEmulatorHost?: string;
+  };
+  CLOUDINARY: {
+    /** cloudinary://<api_key>:<api_secret>@<cloud_name> (alternativa a las 3 variables) */
+    url?: string;
+    cloudName?: string;
+    apiKey?: string;
+    apiSecret?: string;
+    /** Carpeta de los avatares en Cloudinary */
+    avatarFolder: string;
   };
 }
 
@@ -39,6 +49,14 @@ export const env: EnvConfig = {
     serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
     serviceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS,
     emulatorHost: process.env.FIRESTORE_EMULATOR_HOST,
+    authEmulatorHost: process.env.FIREBASE_AUTH_EMULATOR_HOST,
+  },
+  CLOUDINARY: {
+    url: process.env.CLOUDINARY_URL,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    avatarFolder: process.env.CLOUDINARY_AVATAR_FOLDER || 'estudiemos/avatars',
   },
 };
 

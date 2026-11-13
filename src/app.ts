@@ -6,12 +6,18 @@ import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { createCorsDelegate, parseAllowedOrigins } from './config/cors';
 import { swaggerSpec } from './docs/swagger';
-import apiRoutes from './routes';
+import { createApiRouter } from './routes';
+import { AppDeps, buildDeps } from './container';
 import { notFoundHandler } from './middlewares/notFoundHandler';
 import { errorHandler } from './middlewares/errorHandler';
 
-export function createApp(): Application {
+/**
+ * Crea la aplicación Express. `overrides` permite inyectar dobles de prueba
+ * (verificador de tokens, proveedor de identidad, repositorio de usuarios).
+ */
+export function createApp(overrides: Partial<AppDeps> = {}): Application {
   const app = express();
+  const deps = buildDeps(overrides);
 
   // 1. Cabeceras de seguridad
   app.use(
@@ -68,17 +74,23 @@ export function createApp(): Application {
     res.status(200).json({
       name: 'Salón de Estudio Colaborativo - Backend API',
       status: 'active',
-      sprint: 'Sprint 0: Base Técnica End-to-End (TS-00)',
+      sprint: 'Sprint 1: Registro, inicio de sesión y perfiles (US-01, US-02, US-03, TS-01, TS-07)',
       standards: 'TS-05: Contrato API y Errores Estándar',
       documentation: '/api/docs',
       health: '/api/health',
+      endpoints: {
+        register: 'POST /api/auth/register',
+        me: 'GET /api/users/me',
+        username: 'POST /api/users/me/username',
+        avatar: 'POST /api/users/me/avatar',
+      },
       archetypeEndpoint: '/api/archetype/data',
       timestamp: new Date().toISOString(),
     });
   });
 
   // 7. Montaje de rutas de la API bajo el prefijo /api
-  app.use('/api', apiRoutes);
+  app.use('/api', createApiRouter(deps));
 
   // 8. Manejo de rutas 404 (no encontradas)
   app.use(notFoundHandler);

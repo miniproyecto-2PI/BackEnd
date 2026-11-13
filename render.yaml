@@ -23,4 +23,6 @@ services:
       # Variables de Firebase (se configuran en el panel de Render):
       - key: FIREBASE_SERVICE_ACCOUNT_KEY
         sync: false
-
+      # Cloudinary (imagen de perfil). Formato: cloudinary://<api_key>:<api_secret>@<cloud_name>
+      - key: CLOUDINARY_URL
+        sync: false
