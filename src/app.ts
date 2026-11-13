@@ -74,10 +74,16 @@ export function createApp(overrides: Partial<AppDeps> = {}): Application {
     res.status(200).json({
       name: 'Salón de Estudio Colaborativo - Backend API',
       status: 'active',
-      sprint: 'Sprint 0: Base Técnica End-to-End (TS-00)',
+      sprint: 'Sprint 1: Registro, inicio de sesión y perfiles (US-01, US-02, US-03, TS-01, TS-07)',
       standards: 'TS-05: Contrato API y Errores Estándar',
       documentation: '/api/docs',
       health: '/api/health',
+      endpoints: {
+        register: 'POST /api/auth/register',
+        me: 'GET /api/users/me',
+        username: 'POST /api/users/me/username',
+        avatar: 'POST /api/users/me/avatar',
+      },
       archetypeEndpoint: '/api/archetype/data',
       timestamp: new Date().toISOString(),
     });
