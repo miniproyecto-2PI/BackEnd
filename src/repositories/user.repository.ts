@@ -157,6 +157,20 @@ export class FirestoreUserRepository implements IUserRepository {
     }
   }
 
+  async updateAvatar(uid: string, avatar: string): Promise<UserProfile> {
+    const userRef = this.users().doc(uid);
+    try {
+      await this.db.runTransaction(async (tx) => {
+        const snap = await tx.get(userRef);
+        if (!snap.exists) throw new NotFoundError('No encontramos tu perfil. Inicia sesión de nuevo.');
+        tx.update(userRef, { avatar, updatedAt: Timestamp.now() });
+      });
+      return toProfile(await userRef.get());
+    } catch (error) {
+      throw toFirestoreError(error, 'actualizar la imagen de perfil');
+    }
+  }
+
   async deleteProfile(uid: string): Promise<void> {
     const userRef = this.users().doc(uid);
     try {

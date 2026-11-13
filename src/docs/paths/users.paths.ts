@@ -43,6 +43,66 @@ export const usersPaths = {
     },
   },
 
+  '/api/users/me/avatar': {
+    post: {
+      tags: [TAG_USERS],
+      summary: 'Subir imagen de perfil propia 🔒',
+      description: `Sube una foto de perfil y reemplaza \`avatar\` por la URL pública de la imagen (CDN de Cloudinary).
+
+- **Formato:** JPG, PNG o WebP (se verifica el contenido real del archivo, no solo la extensión).
+- **Tamaño máximo:** 2 MB. Un solo archivo en el campo \`avatar\` de un \`multipart/form-data\`.
+- **Procesamiento:** se recorta a 512×512 (centrado en el contenido) y se guarda en WebP. Cada usuario tiene una sola imagen: subir otra reemplaza la anterior.
+- Requiere **perfil completo** (403 \`PROFILE_INCOMPLETE\` si falta elegir username).
+
+El campo \`avatar\` del perfil puede ser un id del catálogo (\`avatar-03\`) o una URL \`https://…\`: el frontend muestra la imagen si empieza por \`https://\`.`,
+      security: secured,
+      requestBody: {
+        required: true,
+        content: {
+          'multipart/form-data': {
+            schema: {
+              type: 'object',
+              required: ['avatar'],
+              properties: {
+                avatar: { type: 'string', format: 'binary', description: 'Imagen JPG, PNG o WebP de máximo 2 MB' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        '200': successResponse('Imagen actualizada', profileRef, {
+          message: 'Tu foto de perfil se actualizó.',
+          data: {
+            ...googleIncompleteExample,
+            username: 'juan.rincon',
+            usernameLower: 'juan.rincon',
+            profileComplete: true,
+            avatar: 'https://res.cloudinary.com/demo/image/upload/v1731400000/estudiemos/avatars/Gg7Hh8Ii9Jj0Kk1Ll2Mm3Nn4.webp',
+          },
+        }),
+        '400': {
+          description: 'Sin archivo, formato no permitido o más de 2 MB (VALIDATION_ERROR)',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/StandardErrorResponse' },
+              example: {
+                error: {
+                  code: 'VALIDATION_ERROR',
+                  message: 'Los datos enviados son inválidos. Revise los campos señalados.',
+                  fields: { avatar: 'La imagen debe pesar máximo 2 MB.' },
+                },
+              },
+            },
+          },
+        },
+        '401': errorRef('Unauthorized'),
+        '403': errorRef('Forbidden'),
+        '503': errorRef('ServiceUnavailable'),
+      },
+    },
+  },
+
   '/api/users/me/username': {
     post: {
       tags: [TAG_USERS],

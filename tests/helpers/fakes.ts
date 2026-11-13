@@ -1,6 +1,7 @@
 import { IUserRepository } from '../../src/repositories/interfaces/user.repository.interface';
 import { CreateIdentityInput, IdentityProvider } from '../../src/services/identity.provider';
 import { TokenVerifier } from '../../src/services/token.verifier';
+import { ImageStorage, UploadedImage } from '../../src/services/image.storage';
 import {
   AuthUser,
   CreateCompleteProfileInput,
@@ -9,6 +10,7 @@ import {
 } from '../../src/types/user.types';
 import {
   EmailInUseError,
+  ServiceUnavailableError,
   FirestoreError,
   NotFoundError,
   UnauthenticatedError,
@@ -104,6 +106,14 @@ export class InMemoryUserRepository implements IUserRepository {
     return { ...profile };
   }
 
+  async updateAvatar(uid: string, avatar: string): Promise<UserProfile> {
+    await tick();
+    const profile = this.users.get(uid);
+    if (!profile) throw new NotFoundError('No encontramos tu perfil. Inicia sesión de nuevo.');
+    Object.assign(profile, { avatar, updatedAt: new Date().toISOString() });
+    return { ...profile };
+  }
+
   async deleteProfile(uid: string): Promise<void> {
     await tick();
     const profile = this.users.get(uid);
@@ -134,6 +144,27 @@ export class FakeIdentityProvider implements IdentityProvider {
     await tick();
     this.accounts.delete(uid);
     this.deletedUids.push(uid);
+  }
+}
+
+/** Cloudinary en memoria: guarda los bytes subidos por uid. */
+export class FakeImageStorage implements ImageStorage {
+  readonly images = new Map<string, Buffer>();
+  /** Si es true, la subida falla como si Cloudinary no respondiera. */
+  failUploads = false;
+  private version = 0;
+
+  async uploadAvatar(uid: string, image: Buffer): Promise<UploadedImage> {
+    await tick();
+    if (this.failUploads) throw new ServiceUnavailableError('No pudimos guardar tu imagen en este momento. Intenta de nuevo en unos minutos.');
+    this.images.set(uid, image);
+    const publicId = `estudiemos/avatars/${uid}`;
+    return { url: `https://res.cloudinary.com/demo/image/upload/v${++this.version}/${publicId}.webp`, publicId };
+  }
+
+  async deleteAvatar(uid: string): Promise<void> {
+    await tick();
+    this.images.delete(uid);
   }
 }
 
@@ -168,8 +199,9 @@ export function buildTestApp() {
   const userRepository = new InMemoryUserRepository();
   const identityProvider = new FakeIdentityProvider();
   const tokenVerifier = new FakeTokenVerifier();
-  const app = createApp({ userRepository, identityProvider, tokenVerifier });
-  return { app, userRepository, identityProvider, tokenVerifier };
+  const imageStorage = new FakeImageStorage();
+  const app = createApp({ userRepository, identityProvider, tokenVerifier, imageStorage });
+  return { app, userRepository, identityProvider, tokenVerifier, imageStorage };
 }
 
 /** Cuerpo válido de registro (US-01). */

@@ -28,6 +28,9 @@ export interface IUserRepository {
    */
   claimUsername(uid: string, username: string): Promise<UserProfile>;
 
+  /** Reemplaza el avatar (id del catálogo o URL de imagen). 404 si no hay perfil. */
+  updateAvatar(uid: string, avatar: string): Promise<UserProfile>;
+
   /** Borra el perfil y libera su username. Idempotente. */
   deleteProfile(uid: string): Promise<void>;
 }
