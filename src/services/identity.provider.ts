@@ -20,6 +20,8 @@ export interface IdentityProvider {
   createUser(input: CreateIdentityInput): Promise<{ uid: string }>;
   /** Elimina la cuenta. No falla si ya no existe (operación idempotente). */
   deleteUser(uid: string): Promise<void>;
+  /** Invalida los refresh tokens del usuario (cerrar sesión en todos los dispositivos). */
+  revokeSessions(uid: string): Promise<void>;
 }
 
 function authOrUnavailable() {
@@ -68,6 +70,17 @@ export class FirebaseIdentityProvider implements IdentityProvider {
     } catch (error) {
       if ((error as { code?: string }).code === 'auth/user-not-found') return;
       console.error(`[Auth] Error al eliminar la cuenta ${uid}: ${(error as Error).message}`);
+      throw new ServiceUnavailableError();
+    }
+  }
+
+  async revokeSessions(uid: string): Promise<void> {
+    const auth = authOrUnavailable();
+    try {
+      await auth.revokeRefreshTokens(uid);
+    } catch (error) {
+      if ((error as { code?: string }).code === 'auth/user-not-found') return;
+      console.error(`[Auth] Error al cerrar la sesión de ${uid}: ${(error as Error).message}`);
       throw new ServiceUnavailableError();
     }
   }

@@ -23,6 +23,19 @@ services:
       # Variables de Firebase (se configuran en el panel de Render):
       - key: FIREBASE_SERVICE_ACCOUNT_KEY
         sync: false
+      # Inicio de sesión desde la API (POST /api/auth/login, /refresh)
+      - key: FIREBASE_WEB_API_KEY
+        sync: false
+      # Google OAuth 2.0 (GET /api/auth/google). REDIRECT_URI = https://<api>.onrender.com/api/auth/google/callback
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      # Página del frontend que recibe ?code= / ?error= (p. ej. https://<frontend>.vercel.app/auth/google/callback)
+      - key: FRONTEND_OAUTH_CALLBACK_URL
+        sync: false
       # Cloudinary (imagen de perfil). Formato: cloudinary://<api_key>:<api_secret>@<cloud_name>
       - key: CLOUDINARY_URL
         sync: false

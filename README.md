@@ -113,6 +113,10 @@ cp .env.example .env
 | `FIREBASE_PROJECT_ID` + `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` | Una de las opciones | Credenciales por separado |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | Una de las opciones | Ruta a un `serviceAccountKey.json` local (ignorado por git) |
 | `FIRESTORE_EMULATOR_HOST` / `FIREBASE_AUTH_EMULATOR_HOST` | No | Emuladores locales de Firebase (no requieren credenciales) |
+| `FIREBASE_WEB_API_KEY` | **Sí** (login) | Clave de API Web del proyecto (*Configuración del proyecto → General*). Solo la usa el servidor para `POST /api/auth/login` y `/refresh`. Sin ella → 503 |
+| `GOOGLE_OAUTH_CLIENT_ID` + `GOOGLE_OAUTH_CLIENT_SECRET` | Para Google | Cliente web OAuth (*Authentication → Sign-in method → Google → Configuración del SDK web*) |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Para Google | `https://<api>/api/auth/google/callback`. Debe estar en *URIs de redireccionamiento autorizados* del cliente en Google Cloud Console |
+| `FRONTEND_OAUTH_CALLBACK_URL` | Para Google | Página del frontend que recibe `?code=` / `?error=` (por defecto `http://localhost:5173/auth/google/callback`) |
 | `CLOUDINARY_URL` | Para subir avatares | `cloudinary://<api_key>:<api_secret>@<cloud_name>` (o `CLOUDINARY_CLOUD_NAME` + `CLOUDINARY_API_KEY` + `CLOUDINARY_API_SECRET`). Sin ella, `POST /api/users/me/avatar` responde 503 |
 | `CLOUDINARY_AVATAR_FOLDER` | No | Carpeta de los avatares (por defecto `estudiemos/avatars`) |
 
@@ -164,6 +168,8 @@ Las pruebas **no necesitan Firebase**: usan dobles en memoria ([tests/helpers/fa
 |---|---|
 | `tests/auth.middleware.test.ts` | 401 sin token, con token mal formado, alterado o vencido; 503 si Firebase Auth no responde |
 | `tests/register.test.ts` | Registro (US-01): 201, validación por campo, 409 username/correo, rollback de Auth y **registro simultáneo con el mismo username** |
+| `tests/login.test.ts` | Login, 401 genérico, 429 tras 10 fallos, refresh, logout, flujo OAuth de Google (state anti-CSRF, cancelación, código de un solo uso), redirecciones abiertas |
+| `tests/auth.gateway.test.ts` | Traducción de errores de la REST API de Firebase Auth (sin red), emulador, tickets de un solo uso |
 | `tests/users.test.ts` | Perfil Google incompleto, elegir username, 403 `PROFILE_INCOMPLETE`, uid tomado del token |
 | `tests/contract.test.ts` | Formato TS-05, JSON inválido, health, Swagger sin referencias rotas |
 | `tests/cors.test.ts` | Orígenes permitidos y bloqueados, comodín de previews, mismo origen, preflight |
@@ -209,6 +215,12 @@ Los cuerpos de petición se generan con `fromZod()` desde los esquemas de `src/v
 | Método | Ruta | Auth | Historia | Descripción |
 |---|---|---|---|---|
 | `POST` | `/api/auth/register` | — | US-01 | Registro manual: crea la cuenta en Auth y el perfil completo en Firestore |
+| `POST` | `/api/auth/login` | — | US-03 | Correo y contraseña → `{ session, profile }` (límite: 10 fallos / 15 min por IP y correo) |
+| `POST` | `/api/auth/refresh` | — | US-03 | `refreshToken` → sesión nueva (idToken de 1 h) |
+| `POST` | `/api/auth/logout` | 🔒 | US-03 | Revoca los refreshTokens del usuario |
+| `GET` | `/api/auth/google` | — | US-02 | Navegación: redirige a Google (OAuth 2.0) |
+| `GET` | `/api/auth/google/callback` | — | US-02 | Lo llama Google; redirige al frontend con `?code=` o `?error=` |
+| `POST` | `/api/auth/google/exchange` | — | US-02 | Canjea el `code` (un solo uso, 60 s) por `{ session, profile }` |
 | `GET` | `/api/users/me` | 🔒 | US-02, US-03 | Perfil de la sesión. En el primer ingreso con Google crea el perfil **incompleto** |
 | `POST` | `/api/users/me/username` | 🔒 | US-02 | Elegir username y completar el perfil |
 | `POST` | `/api/users/me/avatar` | 🔒 | US-01 | Subir imagen de perfil propia (multipart, campo `avatar`; requiere perfil completo) |
@@ -250,15 +262,31 @@ El campo `avatar` del perfil queda como URL `https://res.cloudinary.com/...`. El
 
 ## 🔐 Autenticación
 
-1. El **login ocurre en el frontend** con Firebase Authentication (correo/contraseña o Google).
-2. El frontend envía el ID token en cada petición privada: `Authorization: Bearer <token>` (se obtiene con `await user.getIdToken()`; el SDK lo renueva solo).
-3. El middleware [authenticate](src/middlewares/authenticate.ts) verifica el token con Firebase Admin SDK y deja el usuario en `req.auth`. **El uid siempre sale del token**, nunca del cuerpo de la petición.
-4. Sin token, o con un token mal formado, alterado o vencido → **401 `UNAUTHENTICATED`**.
-5. [requireCompleteProfile](src/middlewares/requireCompleteProfile.ts) responde **403 `PROFILE_INCOMPLETE`** mientras un usuario de Google no haya elegido username. Se aplicará a las rutas privadas del Sprint 2 en adelante (salas, perfil).
+**El frontend no usa el SDK de Firebase ni Firestore.** Todo el inicio de sesión pasa por la API, que habla con Firebase Authentication desde el servidor (REST API con `FIREBASE_WEB_API_KEY` + Admin SDK).
 
-**Flujo de registro manual (US-01):** `POST /api/auth/register` → 201 → el frontend llama `signInWithEmailAndPassword(email, password)` → `GET /api/users/me`.
+1. La API entrega una **sesión** `{ idToken, refreshToken, expiresIn }` en `POST /api/auth/login` o `POST /api/auth/google/exchange`.
+2. El frontend envía el idToken en cada petición privada: `Authorization: Bearer <idToken>`, y en el handshake de Socket.IO (`auth: { token }`).
+3. El idToken dura 1 h. Antes de que venza (o al recibir 401), el frontend llama `POST /api/auth/refresh` con el `refreshToken`; si responde 401, la sesión terminó → `/ingresar`.
+4. El middleware [authenticate](src/middlewares/authenticate.ts) verifica el token con Firebase Admin SDK y deja el usuario en `req.auth`. **El uid siempre sale del token**, nunca del cuerpo de la petición. Sin token, o con uno alterado o vencido → **401 `UNAUTHENTICATED`**.
+5. [requireCompleteProfile](src/middlewares/requireCompleteProfile.ts) responde **403 `PROFILE_INCOMPLETE`** mientras un usuario de Google no haya elegido username.
+6. `POST /api/auth/logout` revoca los refreshTokens; el frontend borra los tokens y desconecta el socket.
 
-**Flujo con Google (US-02):** `signInWithPopup(GoogleAuthProvider)` → `GET /api/users/me`. Si `profileComplete` es `false`, se lleva a la persona a elegir username → `POST /api/users/me/username`.
+**Flujo de registro manual (US-01 → US-03):** `POST /api/auth/register` → 201 → `POST /api/auth/login` con el mismo correo y contraseña → `{ session, profile }`.
+
+**Flujo con Google (US-02), por redirección OAuth 2.0:**
+
+```
+Frontend ──window.location──▶ GET /api/auth/google?redirect=/salas
+   API: cookie httpOnly con `state` ──303──▶ Google (elige cuenta)
+   Google ──303──▶ GET /api/auth/google/callback?code&state
+   API: valida state, code → id_token de Google → sesión de Firebase → perfil
+   API ──303──▶ FRONTEND_OAUTH_CALLBACK_URL?code=<un solo uso>&redirect=/salas   (o ?error=CÓDIGO)
+Frontend ──POST /api/auth/google/exchange { code }──▶ { session, profile }
+```
+
+Si `profile.profileComplete` es `false`, se lleva a la persona a elegir username → `POST /api/users/me/username`. Los códigos de `?error=` son `GOOGLE_CANCELLED`, `UNAUTHENTICATED`, `EMAIL_IN_USE`, `FORBIDDEN`, `TOO_MANY_REQUESTS`, `SERVICE_UNAVAILABLE`, `DATABASE_ERROR` e `INTERNAL`; el frontend muestra su propio mensaje para cada uno. Los tokens nunca viajan en la URL. El código de un solo uso vive en memoria (vale para una instancia de Render; con varias, moverlo a Firestore/Redis).
+
+**Configuración en Firebase/Google (una vez):** *Authentication → Comenzar* y habilitar **Correo/contraseña** y **Google** (sin esto Firebase responde `CONFIGURATION_NOT_FOUND` y la API 503). Luego, en Google Cloud Console, agregar `GOOGLE_OAUTH_REDIRECT_URI` a las URIs de redireccionamiento del cliente web.
 
 ---
 
@@ -297,6 +325,7 @@ Todos los errores responden con el mismo formato, en español y sin detalles int
 | 403 | `FORBIDDEN` · `PROFILE_INCOMPLETE` | Sin permisos · falta elegir username |
 | 404 | `NOT_FOUND` · `ROOM_NOT_FOUND` | Recurso o ruta inexistente |
 | 409 | `USERNAME_TAKEN` · `EMAIL_IN_USE` | Username o correo ya en uso |
+| 429 | `TOO_MANY_REQUESTS` | Demasiados intentos de login / renovación (cabecera `RateLimit` con la espera) |
 | 503 | `DATABASE_ERROR` · `SERVICE_UNAVAILABLE` | Firestore o Firebase Auth no disponibles |
 | 500 | `INTERNAL` | Error inesperado |
 

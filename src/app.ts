@@ -80,6 +80,11 @@ export function createApp(overrides: Partial<AppDeps> = {}): Application {
       health: '/api/health',
       endpoints: {
         register: 'POST /api/auth/register',
+        login: 'POST /api/auth/login',
+        refresh: 'POST /api/auth/refresh',
+        logout: 'POST /api/auth/logout',
+        google: 'GET /api/auth/google',
+        googleExchange: 'POST /api/auth/google/exchange',
         me: 'GET /api/users/me',
         username: 'POST /api/users/me/username',
         avatar: 'POST /api/users/me/avatar',

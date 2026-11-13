@@ -12,6 +12,7 @@ const ERROR_CODES = [
   'ROOM_NOT_FOUND',
   'USERNAME_TAKEN',
   'EMAIL_IN_USE',
+  'TOO_MANY_REQUESTS',
   'DATABASE_ERROR',
   'SERVICE_UNAVAILABLE',
   'INTERNAL',
@@ -31,7 +32,8 @@ export const components = {
       scheme: 'bearer',
       bearerFormat: 'Firebase ID token (JWT)',
       description:
-        'ID token emitido por Firebase Authentication en el frontend (`await user.getIdToken()`). ' +
+        'ID token de Firebase Authentication que entrega la API en `POST /api/auth/login`, ' +
+        '`POST /api/auth/google/exchange` o `POST /api/auth/refresh` (campo `data.session.idToken`). ' +
         'Se envía como `Authorization: Bearer <token>`. Sin token o con token inválido/vencido la API responde 401 UNAUTHENTICATED.',
     },
   },
@@ -123,6 +125,38 @@ export const components = {
       },
     },
 
+    AuthSession: {
+      type: 'object',
+      description:
+        'Sesión emitida por la API. El frontend NO usa el SDK de Firebase: guarda estos tokens y envía el idToken como Bearer.',
+      required: ['idToken', 'refreshToken', 'expiresIn'],
+      properties: {
+        idToken: {
+          type: 'string',
+          description: 'ID token (JWT) de Firebase. Va en `Authorization: Bearer <idToken>` y en el handshake de Socket.IO.',
+          example: 'eyJhbGciOiJSUzI1NiIsImtpZCI6...',
+        },
+        refreshToken: {
+          type: 'string',
+          description: 'Token para pedir un idToken nuevo con POST /api/auth/refresh. Guárdelo con cuidado.',
+          example: 'AMf-vBx...',
+        },
+        expiresIn: {
+          type: 'integer',
+          description: 'Segundos de vida del idToken. Renuévelo unos minutos antes de que venza.',
+          example: 3600,
+        },
+      },
+    },
+
+    LoginResult: {
+      type: 'object',
+      properties: {
+        session: { $ref: '#/components/schemas/AuthSession' },
+        profile: { $ref: '#/components/schemas/UserProfile' },
+      },
+    },
+
     HealthResponse: {
       type: 'object',
       properties: {
@@ -172,6 +206,13 @@ export const components = {
         'USERNAME_TAKEN',
         'El nombre de usuario ya se encuentra registrado por otro estudiante.',
         { username: 'Este nombre de usuario no está disponible.' }
+      ),
+    },
+    TooManyRequests: {
+      description: 'Demasiados intentos (429 TOO_MANY_REQUESTS). Incluye la cabecera RateLimit con el tiempo de espera.',
+      content: errorExample(
+        'TOO_MANY_REQUESTS',
+        'Hiciste demasiados intentos de inicio de sesión. Espera 15 minutos e intenta de nuevo.'
       ),
     },
     ServiceUnavailable: {
