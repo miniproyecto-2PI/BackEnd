@@ -7,6 +7,8 @@ import { AuthGateway, FirebaseAuthGateway } from './services/auth.gateway';
 import { GoogleOAuthClient, HttpGoogleOAuthClient } from './services/google.oauth';
 import { InMemoryLoginTicketStore, LoginTicketStore } from './services/login.tickets';
 import { LoginResult } from './services/auth.service';
+import { RoomRepository } from './repositories/room.repository';
+import { RoomService } from './services/room.service';
 
 /**
  * Dependencias externas de la API. En producción usan Firebase; en las pruebas
@@ -22,6 +24,7 @@ export interface AppDeps {
   authGateway: AuthGateway;
   googleOAuth: GoogleOAuthClient;
   loginTickets: LoginTicketStore<LoginResult>;
+  roomService: RoomService;
 }
 
 export function buildDeps(overrides: Partial<AppDeps> = {}): AppDeps {
@@ -33,5 +36,6 @@ export function buildDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     authGateway: overrides.authGateway ?? new FirebaseAuthGateway(),
     googleOAuth: overrides.googleOAuth ?? new HttpGoogleOAuthClient(),
     loginTickets: overrides.loginTickets ?? new InMemoryLoginTicketStore<LoginResult>(),
+    roomService: overrides.roomService ?? new RoomService(new RoomRepository()),
   };
 }
