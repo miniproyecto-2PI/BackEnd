@@ -1,7 +1,8 @@
 import { errorRef, jsonBody, successResponse } from '../openapi.helpers';
-import { chooseUsernameSchema } from '../../validators/user.schemas';
+import { chooseUsernameSchema, updateProfileSchema } from '../../validators/user.schemas';
 
-export const TAG_USERS = 'Usuarios (US-02, US-03)';
+// Actualizamos la etiqueta para reflejar el Sprint 2
+export const TAG_USERS = 'Usuarios (US-02, US-03, US-04, US-05)';
 
 const profileRef = { $ref: '#/components/schemas/UserProfile' };
 const secured = [{ bearerAuth: [] }];
@@ -36,6 +37,86 @@ export const usersPaths = {
           message: 'Tomamos tus datos de Google. Elige tu nombre de usuario para continuar.',
           data: googleIncompleteExample,
         }),
+        '401': errorRef('Unauthorized'),
+        '404': errorRef('NotFound'),
+        '503': errorRef('ServiceUnavailable'),
+      },
+    },
+    // NUEVO: US-04 Editar Perfil
+    patch: {
+      tags: [TAG_USERS],
+      summary: 'Editar perfil del usuario (US-04) 🔒',
+      description: `Actualiza los datos del perfil del usuario autenticado (el uid sale del token).
+
+- **Reglas de validación:** mismas reglas que el registro (US-01).
+- **Username:** si se cambia, se valida la unicidad en el servidor. Si ya está ocupado, responde **409 USERNAME_TAKEN**.
+- **Correo:** solo se puede modificar si la cuenta es manual (email/contraseña). Si la cuenta es de Google, responde **400 VALIDATION_ERROR**.
+- **Campos omitidos:** los campos que no se envíen en el body no se modifican.`,
+      security: secured,
+      requestBody: jsonBody(updateProfileSchema, {
+        firstName: 'Juan David',
+        lastName: 'Rincón',
+        username: 'juan.rincon',
+        avatar: 'avatar-05',
+      }),
+      responses: {
+        '200': successResponse('Perfil actualizado', profileRef, {
+          message: 'Tus cambios se guardaron correctamente.',
+          data: {
+            ...googleIncompleteExample,
+            username: 'juan.rincon',
+            usernameLower: 'juan.rincon',
+            profileComplete: true,
+            provider: 'password',
+          },
+        }),
+        '400': {
+          description: 'Datos inválidos o intento de cambiar correo en cuenta de Google (VALIDATION_ERROR)',
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/StandardErrorResponse' },
+              example: {
+                error: {
+                  code: 'VALIDATION_ERROR',
+                  message: 'Las cuentas de Google no pueden cambiar el correo.',
+                  fields: { email: 'Tu correo está gestionado por Google.' },
+                },
+              },
+            },
+          },
+        },
+        '401': errorRef('Unauthorized'),
+        '404': errorRef('NotFound'),
+        '409': errorRef('Conflict'),
+        '503': errorRef('ServiceUnavailable'),
+      },
+    },
+    // NUEVO: US-05 Eliminar Cuenta
+    delete: {
+      tags: [TAG_USERS],
+      summary: 'Eliminar cuenta permanentemente (US-05) 🔒',
+      description: `Borra el perfil de Firestore, libera el username en la colección \`usernames\` y elimina la cuenta de Firebase Authentication.
+
+- **Irreversible:** El usuario es redirigido al login y su sesión se invalida.
+- **Datos asociados:** Se aplica la política de datos del equipo (las salas creadas se borran o se anonimizan según corresponda).
+- **Idempotente:** Si el perfil ya fue eliminado, responde 200 (no lanza error).`,
+      security: secured,
+      responses: {
+        '200': {
+          description: 'Cuenta eliminada permanentemente.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string', example: 'Tu cuenta fue eliminada permanentemente.' },
+                  data: { type: 'object', nullable: true, example: null },
+                },
+              },
+            },
+          },
+        },
         '401': errorRef('Unauthorized'),
         '404': errorRef('NotFound'),
         '503': errorRef('ServiceUnavailable'),

@@ -2,19 +2,17 @@ import { components } from './components';
 import { systemPaths } from './paths/system.paths';
 import { authPaths, TAG_AUTH } from './paths/auth.paths';
 import { usersPaths, TAG_USERS } from './paths/users.paths';
+// NUEVO: Importar rutas de salas y su etiqueta
+import { roomsPaths, TAG_ROOMS } from './paths/rooms.paths';
 
 /**
  * Especificación OpenAPI 3 de la API (servida en /api/docs y /api/docs.json).
- *
- * Fuente única de verdad: cada dominio agrega sus rutas en src/docs/paths/*.paths.ts
- * y los cuerpos de petición se generan desde los esquemas Zod de src/validators,
- * los mismos que validan las peticiones reales.
  */
 export const swaggerSpec = {
   openapi: '3.0.3',
   info: {
     title: 'Salón de Estudio Colaborativo - Backend API',
-    version: '1.1.0',
+    version: '1.2.0', // Actualizado para el Sprint 2
     description: `
 API REST del MiniProyecto 2: **Salón de Estudio Colaborativo en Tiempo Real** (Node.js + TypeScript, arquitectura por capas, Firestore).
 
@@ -36,7 +34,11 @@ Todos los errores responden \`{ "error": { "code", "message", "fields" } }\` con
     },
     {
       name: TAG_USERS,
-      description: 'Perfil del usuario autenticado y finalización del registro con Google.',
+      description: 'Perfil del usuario autenticado, edición (US-04), eliminación de cuenta (US-05) y finalización del registro con Google.',
+    },
+    {
+      name: TAG_ROOMS, // NUEVO
+      description: 'Creación y visualización de salas de estudio propias (US-06).',
     },
     { name: 'Salud del Sistema (Health)', description: 'Monitoreo del estado de la API y de Firestore' },
     { name: 'Arquetipo Base (TS-00)', description: 'Base técnica: lectura y escritura de un dato en Firestore' },
@@ -46,6 +48,7 @@ Todos los errores responden \`{ "error": { "code", "message", "fields" } }\` con
   paths: {
     ...authPaths,
     ...usersPaths,
+    ...roomsPaths, // NUEVO
     ...systemPaths,
   },
 };
