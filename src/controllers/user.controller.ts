@@ -9,6 +9,17 @@ import { UpdateProfileInput } from '../validators/user.schemas';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+    /** DELETE /api/users/me */
+  deleteMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.auth) throw new UnauthenticatedError();
+      await this.userService.deleteAccount(req.auth.uid);
+      sendSuccess(res, 200, null, 'Tu cuenta fue eliminada permanentemente.');
+    } catch (error) {
+      next(error);
+    }
+  };
+
 
     /** PATCH /api/users/me */
   updateMe = async (req: Request<unknown, unknown, UpdateProfileInput>, res: Response, next: NextFunction): Promise<void> => {
@@ -20,7 +31,7 @@ export class UserController {
       next(error);
     }
   };
-  
+
   /** GET /api/users/me */
   getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

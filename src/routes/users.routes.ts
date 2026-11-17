@@ -6,6 +6,7 @@ import { uploadAvatar } from '../middlewares/uploadAvatar';
 import { chooseUsernameSchema } from '../validators/user.schemas';
 import { updateProfileSchema } from '../validators/user.schemas';
 
+
 // Documentación OpenAPI: src/docs/paths/users.paths.ts
 export function createUsersRouter(
   userService: UserService,
@@ -23,7 +24,8 @@ export function createUsersRouter(
   router.get('/me', controller.getMe);
   router.post('/me/username', validateBody(chooseUsernameSchema), controller.chooseUsername);
   router.patch('/me', requireCompleteProfile, validateBody(updateProfileSchema), controller.updateMe);
-
+  router.delete('/me', requireCompleteProfile, controller.deleteMe);
+  
   // Imagen de perfil propia (multipart, campo "avatar"): requiere perfil completo (403 si no)
   router.post('/me/avatar', requireCompleteProfile, uploadAvatar, controller.updateAvatar);
 

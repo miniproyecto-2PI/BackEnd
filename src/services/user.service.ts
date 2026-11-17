@@ -9,6 +9,9 @@ import { UpdateProfileInput } from '../validators/user.schemas';
 const GOOGLE_PROVIDER = 'google.com';
 const NAME_MAX = 50;
 
+
+
+
 /** Separa el displayName de Google en nombres (primera palabra) y apellidos (resto). */
 export function splitGoogleName(displayName: string | null): { firstName: string; lastName: string } {
   const parts = (displayName ?? '').trim().split(/\s+/).filter(Boolean);
@@ -50,6 +53,21 @@ export class UserService {
     return this.users.updateProfile(uid, input, isGoogleAccount);
   }
 
+
+    async deleteAccount(uid: string): Promise<void> {
+    // 1. Borrar de Firestore (tu repositorio ya hace la transacción y libera el username)
+    await this.users.deleteProfile(uid);
+    
+    // 2. Borrar de Firebase Auth (usando tu IdentityProvider)
+    try {
+      await this.identity.deleteUser(uid);
+    } catch (error) {
+      console.error(`[Eliminar Cuenta] Error al borrar Auth ${uid}:`, error);
+      // No lanzamos error para que el frontend no se quede colgado si Auth falla, 
+      // ya que el perfil de la base de datos ya se borró.
+    }
+  }
+  
   /**
    * Registro manual (US-01):
    *  1. Verificación rápida del username (evita crear la cuenta de Auth si ya está ocupado).
