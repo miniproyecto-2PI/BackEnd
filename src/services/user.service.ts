@@ -4,9 +4,13 @@ import { ImageStorage } from './image.storage';
 import { AuthUser, UserProfile } from '../types/user.types';
 import { NotFoundError, UsernameTakenError, ValidationError } from '../types/errors.types';
 import { RegisterInput } from '../validators/user.schemas';
+import { UpdateProfileInput } from '../validators/user.schemas';
 
 const GOOGLE_PROVIDER = 'google.com';
 const NAME_MAX = 50;
+
+
+
 
 /** Separa el displayName de Google en nombres (primera palabra) y apellidos (resto). */
 export function splitGoogleName(displayName: string | null): { firstName: string; lastName: string } {
@@ -31,6 +35,39 @@ export class UserService {
     private readonly images: ImageStorage
   ) {}
 
+  async updateProfile(uid: string, input: UpdateProfileInput): Promise<UserProfile> {
+    const user = await this.users.findById(uid);
+    if (!user) throw new NotFoundError('No encontramos tu perfil.');
+    
+    const isGoogleAccount = user.provider === 'google';
+
+    // Validar que un usuario de Google no intente cambiar el correo
+    if (input.email && isGoogleAccount && input.email !== user.email) {
+      throw new ValidationError('Las cuentas de Google no pueden cambiar el correo.', { 
+        email: 'Tu correo está gestionado por Google.' 
+      });
+    }
+
+    // La actualización del correo se limita al perfil, ya que IdentityProvider
+    // no expone una operación para modificar Firebase Auth.
+    return this.users.updateProfile(uid, input, isGoogleAccount);
+  }
+
+
+    async deleteAccount(uid: string): Promise<void> {
+    // 1. Borrar de Firestore (tu repositorio ya hace la transacción y libera el username)
+    await this.users.deleteProfile(uid);
+    
+    // 2. Borrar de Firebase Auth (usando tu IdentityProvider)
+    try {
+      await this.identity.deleteUser(uid);
+    } catch (error) {
+      console.error(`[Eliminar Cuenta] Error al borrar Auth ${uid}:`, error);
+      // No lanzamos error para que el frontend no se quede colgado si Auth falla, 
+      // ya que el perfil de la base de datos ya se borró.
+    }
+  }
+  
   /**
    * Registro manual (US-01):
    *  1. Verificación rápida del username (evita crear la cuenta de Auth si ya está ocupado).

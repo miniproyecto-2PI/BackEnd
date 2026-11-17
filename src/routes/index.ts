@@ -10,6 +10,7 @@ import errorDemoRoutes from './errorDemo.routes';
 import { createArchetypeRouter } from './archetype.routes';
 import { createAuthRouter } from './auth.routes';
 import { createUsersRouter } from './users.routes';
+import { createRoomsRouter } from './rooms.routes';
 
 /** Router de /api. Recibe las dependencias para poder inyectar dobles en las pruebas. */
 export function createApiRouter(deps: AppDeps): Router {
@@ -36,6 +37,7 @@ export function createApiRouter(deps: AppDeps): Router {
     })
   );
   router.use('/users', createUsersRouter(userService, authenticate, requireCompleteProfile));
-
+  router.use('/rooms', createRoomsRouter(deps.roomService, authenticate, requireCompleteProfile));
+  
   return router;
 }

@@ -1,3 +1,4 @@
+import { UpdateProfileInput } from '../validators/user.schemas';
 import { DocumentData, DocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
 import { getFirestore } from '../config/firebase';
 import { IUserRepository } from './interfaces/user.repository.interface';
@@ -35,6 +36,61 @@ function toProfile(snapshot: DocumentSnapshot<DocumentData>): UserProfile {
 }
 
 export class FirestoreUserRepository implements IUserRepository {
+
+   async updateProfile(uid: string, input: UpdateProfileInput, isGoogleAccount: boolean): Promise<UserProfile> {
+    const userRef = this.users().doc(uid);
+
+    try {
+      await this.db.runTransaction(async (tx) => {
+        const userSnap = await tx.get(userRef);
+        if (!userSnap.exists) throw new NotFoundError('Perfil no encontrado');
+        
+        const currentData = userSnap.data()!;
+        const updates: any = { updatedAt: Timestamp.now() };
+
+        // 1. Nombres y Avatar
+        if (input.firstName) updates.firstName = input.firstName;
+        if (input.lastName) updates.lastName = input.lastName;
+        if (input.avatar) updates.avatar = input.avatar;
+
+        // 2. Correo (Solo si NO es de Google)
+        if (input.email && !isGoogleAccount && input.email !== currentData.email) {
+          // Nota: El cambio en Firebase Auth se hace en el Service, aquí solo actualizamos Firestore
+          updates.email = input.email;
+        }
+
+        // 3. Username (Transacción de liberación y reserva)
+        if (input.username && input.username !== currentData.username) {
+          const newLower = normalizeUsername(input.username);
+          const newUsernameRef = this.usernames().doc(newLower);
+          
+          const newUsernameSnap = await tx.get(newUsernameRef);
+          if (newUsernameSnap.exists) throw new UsernameTakenError();
+
+          // Liberar el viejo
+          if (currentData.usernameLower) {
+            const oldUsernameRef = this.usernames().doc(currentData.usernameLower);
+            const oldUsernameSnap = await tx.get(oldUsernameRef);
+            if (oldUsernameSnap.exists && oldUsernameSnap.get('uid') === uid) {
+              tx.delete(oldUsernameRef);
+            }
+          }
+
+          // Reservar el nuevo
+          tx.create(newUsernameRef, { uid, username: input.username, createdAt: Timestamp.now() });
+          updates.username = input.username;
+          updates.usernameLower = newLower;
+        }
+
+        tx.update(userRef, updates);
+      });
+
+      return toProfile(await userRef.get());
+    } catch (error) {
+      throw toFirestoreError(error, 'actualizar el perfil');
+    }
+  }
+
   private get db() {
     try {
       return getFirestore();
