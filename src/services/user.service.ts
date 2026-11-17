@@ -4,6 +4,7 @@ import { ImageStorage } from './image.storage';
 import { AuthUser, UserProfile } from '../types/user.types';
 import { NotFoundError, UsernameTakenError, ValidationError } from '../types/errors.types';
 import { RegisterInput } from '../validators/user.schemas';
+import { UpdateProfileInput } from '../validators/user.schemas';
 
 const GOOGLE_PROVIDER = 'google.com';
 const NAME_MAX = 50;
@@ -30,6 +31,24 @@ export class UserService {
     private readonly identity: IdentityProvider,
     private readonly images: ImageStorage
   ) {}
+
+  async updateProfile(uid: string, input: UpdateProfileInput): Promise<UserProfile> {
+    const user = await this.users.findById(uid);
+    if (!user) throw new NotFoundError('No encontramos tu perfil.');
+    
+    const isGoogleAccount = user.provider === 'google';
+
+    // Validar que un usuario de Google no intente cambiar el correo
+    if (input.email && isGoogleAccount && input.email !== user.email) {
+      throw new ValidationError('Las cuentas de Google no pueden cambiar el correo.', { 
+        email: 'Tu correo está gestionado por Google.' 
+      });
+    }
+
+    // La actualización del correo se limita al perfil, ya que IdentityProvider
+    // no expone una operación para modificar Firebase Auth.
+    return this.users.updateProfile(uid, input, isGoogleAccount);
+  }
 
   /**
    * Registro manual (US-01):

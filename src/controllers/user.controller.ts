@@ -3,11 +3,24 @@ import { UserService } from '../services/user.service';
 import { ChooseUsernameInput } from '../validators/user.schemas';
 import { UnauthenticatedError, ValidationError } from '../types/errors.types';
 import { sendSuccess } from '../utils/response';
+import { UpdateProfileInput } from '../validators/user.schemas';
 
 /** Todas las rutas van detrás de `authenticate`: el uid sale SIEMPRE del token, nunca del body. */
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+
+    /** PATCH /api/users/me */
+  updateMe = async (req: Request<unknown, unknown, UpdateProfileInput>, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.auth) throw new UnauthenticatedError();
+      const profile = await this.userService.updateProfile(req.auth.uid, req.body);
+      sendSuccess(res, 200, profile, 'Tus cambios se guardaron correctamente.');
+    } catch (error) {
+      next(error);
+    }
+  };
+  
   /** GET /api/users/me */
   getMe = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

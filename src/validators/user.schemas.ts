@@ -64,3 +64,15 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export const chooseUsernameSchema = z.object({ username: usernameField }).strict();
 
 export type ChooseUsernameInput = z.infer<typeof chooseUsernameSchema>;
+
+
+/** PATCH /api/users/me (US-04) */
+export const updateProfileSchema = z.object({
+  firstName: nameField('nombres').optional(),
+  lastName: nameField('apellidos').optional(),
+  username: usernameField.optional(),
+  avatar: z.enum(AVATAR_IDS).optional(),
+  email: emailField.optional(),
+}).strict();
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

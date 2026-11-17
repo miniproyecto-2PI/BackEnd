@@ -4,6 +4,8 @@ import {
   UserProfile,
 } from '../../types/user.types';
 
+type UpdateProfileInput = Partial<UserProfile>;
+
 /**
  * Acceso a los perfiles (users/{uid}) y a la reserva de nombres de usuario
  * (usernames/{usernameLower}). La unicidad del username se garantiza con
@@ -33,4 +35,6 @@ export interface IUserRepository {
 
   /** Borra el perfil y libera su username. Idempotente. */
   deleteProfile(uid: string): Promise<void>;
+
+  updateProfile(uid: string, input: UpdateProfileInput, isGoogleAccount: boolean): Promise<UserProfile>;
 }
