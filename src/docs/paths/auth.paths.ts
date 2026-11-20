@@ -37,20 +37,16 @@ const unauthorized = (message: string) => ({
   },
 });
 
-const profileRef = { $ref: '#/components/schemas/UserProfile' };
-
 export const authPaths = {
   '/api/auth/register': {
     post: {
       tags: [TAG_AUTH],
       summary: 'Registro manual de usuario (US-01)',
-      description: `Crea la cuenta en **Firebase Authentication** y el perfil completo en **Firestore** (\`users/{uid}\`), reservando el nombre de usuario en \`usernames/{usernameLower}\` dentro de una transacción.
-
-- La unicidad del username se garantiza en el servidor y no distingue mayúsculas (\`Ana_01\` = \`ana_01\`). Si dos personas lo envían al mismo tiempo, solo una lo obtiene.
-- Si falla la escritura del perfil, la cuenta de Auth se elimina para no dejar cuentas a medias.
-- Tras el 201, el frontend inicia sesión con \`POST /api/auth/login\` (mismo correo y contraseña) y obtiene el ID token.
-
-**Reglas:** nombres y apellidos de 1 a 50 caracteres; username de 3 a 20 (letras, números, \`.\` o \`_\`, sin espacios); correo válido; contraseña de al menos 8 caracteres con una letra y un número; avatar del catálogo.`,
+      description: `Crea la cuenta en **Firebase Authentication** y el perfil completo en **Firestore**, reservando el nombre de usuario en una transacción.
+      
+- **Importante:** Al registrarse exitosamente, el endpoint **inicia sesión automáticamente** y devuelve el ID token, por lo que el frontend no necesita hacer una segunda petición a \`/login\`.
+- La unicidad del username se garantiza en el servidor. Si dos personas lo envían al mismo tiempo, solo una lo obtiene.
+- Si falla la escritura del perfil, la cuenta de Auth se elimina para no dejar cuentas a medias.`,
       requestBody: jsonBody(registerSchema, {
         firstName: 'Ana María',
         lastName: 'Pérez Gómez',
@@ -60,20 +56,23 @@ export const authPaths = {
         password: 'Estudio2026',
       }),
       responses: {
-        '201': successResponse('Cuenta creada', profileRef, {
+        '201': successResponse('Cuenta creada y sesión iniciada', loginResultRef, {
           message: '¡Tu cuenta está lista!',
           data: {
-            uid: 'Xk3P9aBc1dEfGh2IjKlMnOpQ',
-            firstName: 'Ana María',
-            lastName: 'Pérez Gómez',
-            username: 'Ana_01',
-            usernameLower: 'ana_01',
-            email: 'ana.perez@correounivalle.edu.co',
-            avatar: 'avatar-03',
-            provider: 'password',
-            profileComplete: true,
-            createdAt: '2026-11-10T15:00:00.000Z',
-            updatedAt: '2026-11-10T15:00:00.000Z',
+            session: sessionExample,
+            profile: {
+              uid: 'Xk3P9aBc1dEfGh2IjKlMnOpQ',
+              firstName: 'Ana María',
+              lastName: 'Pérez Gómez',
+              username: 'Ana_01',
+              usernameLower: 'ana_01',
+              email: 'ana.perez@correounivalle.edu.co',
+              avatar: 'avatar-03',
+              provider: 'password',
+              profileComplete: true,
+              createdAt: '2026-11-10T15:00:00.000Z',
+              updatedAt: '2026-11-10T15:00:00.000Z',
+            },
           },
         }),
         '400': errorRef('BadRequest'),
@@ -113,12 +112,8 @@ export const authPaths = {
     post: {
       tags: [TAG_AUTH],
       summary: 'Iniciar sesión con correo y contraseña (US-03)',
-      description: `La API verifica las credenciales contra **Firebase Authentication** (REST API, desde el servidor) y devuelve la sesión y el perfil en una sola respuesta. **El frontend no usa el SDK de Firebase.**
-
-- Guarde \`session.idToken\` y envíelo como \`Authorization: Bearer <idToken>\` en cada ruta 🔒 y en el handshake de Socket.IO (\`auth.token\`).
-- El idToken vence en \`session.expiresIn\` segundos (1 h): renuévelo con \`POST /api/auth/refresh\` unos minutos antes.
-- Credenciales incorrectas siempre responden el mismo mensaje (no revela si el correo existe).
-- **Límite:** 10 intentos fallidos por IP y correo cada 15 minutos → 429 \`TOO_MANY_REQUESTS\`.`,
+      description: `La API verifica las credenciales contra **Firebase Authentication** y devuelve la sesión y el perfil en una sola respuesta.
+- Guarde \`session.idToken\` y envíelo como \`Authorization: Bearer <idToken>\` en cada ruta 🔒.`,
       requestBody: jsonBody(loginSchema, { email: 'ana.perez@correounivalle.edu.co', password: 'Estudio2026' }),
       responses: {
         '200': successResponse('Sesión iniciada', loginResultRef, {
@@ -138,9 +133,7 @@ export const authPaths = {
     post: {
       tags: [TAG_AUTH],
       summary: 'Renovar el ID token de la sesión',
-      description:
-        'Cambia el `refreshToken` por un idToken nuevo (y un refreshToken que reemplaza al anterior). ' +
-        'Úselo antes de que venza el idToken o al recibir 401 en una ruta 🔒. Si responde 401, la sesión terminó: lleve a la persona a /ingresar.',
+      description: 'Cambia el `refreshToken` por un idToken nuevo (y un refreshToken que reemplaza al anterior).',
       requestBody: jsonBody(refreshSchema, { refreshToken: 'AMf-vBx...' }),
       responses: {
         '200': successResponse('Sesión renovada', sessionRef, { message: 'Sesión renovada.', data: sessionExample }),
@@ -155,9 +148,7 @@ export const authPaths = {
     post: {
       tags: [TAG_AUTH],
       summary: 'Cerrar sesión 🔒',
-      description:
-        'Invalida todos los refreshTokens del usuario (cierra la sesión en todos sus dispositivos). ' +
-        'El frontend debe borrar los tokens guardados y desconectar el socket. El idToken actual sigue siendo válido hasta que venza (máx. 1 h).',
+      description: 'Invalida todos los refreshTokens del usuario (cierra la sesión en todos sus dispositivos).',
       security: [{ bearerAuth: [] }],
       responses: {
         '200': successResponse('Sesión cerrada', { nullable: true }, { message: 'Cerraste sesión.', data: null }),
@@ -170,25 +161,18 @@ export const authPaths = {
     get: {
       tags: [TAG_AUTH],
       summary: 'Iniciar sesión con Google (redirección OAuth 2.0, US-02)',
-      description: `**Navegación del navegador, no \`fetch\`**: el frontend hace \`window.location.assign(\\\`\${API}/api/auth/google?redirect=/salas\\\`)\`.
-
-1. La API guarda un \`state\` en una cookie httpOnly y redirige (303) a la pantalla de Google.
-2. Google vuelve a \`/api/auth/google/callback\`; la API verifica el \`state\`, obtiene la sesión de Firebase y crea el perfil (incompleto en el primer ingreso).
-3. La API redirige a \`FRONTEND_OAUTH_CALLBACK_URL\` con \`?code=<código de un solo uso>&redirect=/salas\`, o con \`?error=<CÓDIGO>\`.
-4. El frontend canjea el código con \`POST /api/auth/google/exchange\` (vence en 60 s). Los tokens nunca viajan en la URL.
-
-**Códigos de \`?error=\`:** \`GOOGLE_CANCELLED\` (la persona canceló), \`UNAUTHENTICATED\` (state inválido o Google rechazó), \`EMAIL_IN_USE\` (el correo ya tiene cuenta con contraseña), \`FORBIDDEN\`, \`TOO_MANY_REQUESTS\`, \`SERVICE_UNAVAILABLE\`, \`DATABASE_ERROR\`, \`INTERNAL\`. El frontend muestra su propio mensaje para cada código.`,
+      description: `**Navegación del navegador, no \`fetch\`**. El frontend hace \`window.location.assign(API + '/api/auth/google?redirect=/salas')\`. Los tokens nunca viajan en la URL.`,
       parameters: [
         {
           name: 'redirect',
           in: 'query',
           required: false,
-          description: 'Ruta interna del frontend a la que volver tras el login (debe empezar por "/"). Se devuelve tal cual en el callback.',
+          description: 'Ruta interna del frontend a la que volver tras el login (debe empezar por "/").',
           schema: { type: 'string', example: '/salas' },
         },
       ],
       responses: {
-        '303': { description: 'Redirección a Google (o al frontend con ?error=SERVICE_UNAVAILABLE si Google no está configurado)' },
+        '303': { description: 'Redirección a Google' },
         '429': errorRef('TooManyRequests'),
       },
     },
@@ -197,9 +181,7 @@ export const authPaths = {
     get: {
       tags: [TAG_AUTH],
       summary: 'Callback de Google (lo llama Google, no el frontend)',
-      description:
-        'URL registrada en Google Cloud Console como *Authorized redirect URI* (`GOOGLE_OAUTH_REDIRECT_URI`). ' +
-        'Siempre termina en una redirección 303 a `FRONTEND_OAUTH_CALLBACK_URL` con `?code=` o `?error=` (ver `GET /api/auth/google`).',
+      description: 'Siempre termina en una redirección 303 a `FRONTEND_OAUTH_CALLBACK_URL` con `?code=` o `?error=`.',
       parameters: [
         { name: 'code', in: 'query', schema: { type: 'string' } },
         { name: 'state', in: 'query', schema: { type: 'string' } },
@@ -214,9 +196,7 @@ export const authPaths = {
     post: {
       tags: [TAG_AUTH],
       summary: 'Canjear el código del callback de Google por la sesión (US-02)',
-      description:
-        'Recibe el `?code=` con el que la API redirigió al frontend. Es de un solo uso y vence en 60 segundos. ' +
-        'Responde la sesión y el perfil; si `profile.profileComplete` es `false`, lleve a la persona a elegir su nombre de usuario (`POST /api/users/me/username`).',
+      description: 'Recibe el `?code=` con el que la API redirigió al frontend. Es de un solo uso y vence en 60 segundos.',
       requestBody: jsonBody(googleExchangeSchema, { code: 'q8Zr2v...' }),
       responses: {
         '200': successResponse('Sesión iniciada con Google', loginResultRef, {
