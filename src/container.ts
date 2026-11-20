@@ -24,10 +24,14 @@ export interface AppDeps {
   authGateway: AuthGateway;
   googleOAuth: GoogleOAuthClient;
   loginTickets: LoginTicketStore<LoginResult>;
+  roomRepository: RoomRepository; // NUEVO
   roomService: RoomService;
 }
 
 export function buildDeps(overrides: Partial<AppDeps> = {}): AppDeps {
+  // Instanciamos el roomRepository una sola vez para reutilizarlo
+  const roomRepository = overrides.roomRepository ?? new RoomRepository();
+
   return {
     tokenVerifier: overrides.tokenVerifier ?? new FirebaseTokenVerifier(),
     identityProvider: overrides.identityProvider ?? new FirebaseIdentityProvider(),
@@ -36,6 +40,7 @@ export function buildDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     authGateway: overrides.authGateway ?? new FirebaseAuthGateway(),
     googleOAuth: overrides.googleOAuth ?? new HttpGoogleOAuthClient(),
     loginTickets: overrides.loginTickets ?? new InMemoryLoginTicketStore<LoginResult>(),
-    roomService: overrides.roomService ?? new RoomService(new RoomRepository()),
+    roomRepository,
+    roomService: overrides.roomService ?? new RoomService(roomRepository),
   };
 }

@@ -17,7 +17,15 @@ export function createApiRouter(deps: AppDeps): Router {
   const router = Router();
   const authenticate = createAuthenticate(deps.tokenVerifier);
   const requireCompleteProfile = createRequireCompleteProfile(deps.userRepository);
-  const userService = new UserService(deps.userRepository, deps.identityProvider, deps.imageStorage);
+  
+  // NUEVO: Se inyecta deps.roomRepository al final
+  const userService = new UserService(
+    deps.userRepository, 
+    deps.identityProvider, 
+    deps.imageStorage, 
+    deps.roomRepository 
+  );
+  
   const authService = new AuthService(
     deps.authGateway,
     deps.googleOAuth,

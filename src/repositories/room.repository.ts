@@ -49,4 +49,17 @@ export class RoomRepository {
     const d = snap.data()!;
     return { id: snap.id, name: d.name, ownerId: d.ownerId, createdAt: d.createdAt.toDate().toISOString() };
   }
+
+  /** Borra todas las salas que pertenecen a un usuario. Usado en US-05 al eliminar cuenta. */
+  async deleteByOwnerId(ownerId: string): Promise<void> {
+    const snapshot = await this.rooms().where('ownerId', '==', ownerId).get();
+    if (snapshot.empty) return;
+
+    // Usamos un batch para borrar todos los documentos eficientemente
+    const batch = this.db.batch();
+    snapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }
 }

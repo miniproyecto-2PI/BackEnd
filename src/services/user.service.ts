@@ -1,6 +1,7 @@
 import { IUserRepository } from '../repositories/interfaces/user.repository.interface';
 import { IdentityProvider } from './identity.provider';
 import { ImageStorage } from './image.storage';
+import { RoomRepository } from '../repositories/room.repository'; // NUEVO
 import { AuthUser, UserProfile } from '../types/user.types';
 import { NotFoundError, UsernameTakenError, ValidationError } from '../types/errors.types';
 import { RegisterInput } from '../validators/user.schemas';
@@ -29,7 +30,8 @@ export class UserService {
   constructor(
     private readonly users: IUserRepository,
     private readonly identity: IdentityProvider,
-    private readonly images: ImageStorage
+    private readonly images: ImageStorage,
+    private readonly rooms: RoomRepository // NUEVO
   ) {}
 
   async updateProfile(uid: string, input: UpdateProfileInput): Promise<UserProfile> {
@@ -56,10 +58,13 @@ export class UserService {
   }
 
   async deleteAccount(uid: string): Promise<void> {
-    // 1. Borrar de Firestore (tu repositorio ya hace la transacción y libera el username)
+    // 1. Borrar las salas asociadas al usuario para no dejar datos huérfanos
+    await this.rooms.deleteByOwnerId(uid);
+
+    // 2. Borrar de Firestore el perfil y liberar el username
     await this.users.deleteProfile(uid);
     
-    // 2. Borrar de Firebase Auth (usando tu IdentityProvider)
+    // 3. Borrar de Firebase Auth
     try {
       await this.identity.deleteUser(uid);
     } catch (error) {
