@@ -19,10 +19,6 @@ export interface AuthControllerOptions {
   secureCookies: boolean;
 }
 
-/**
- * Ruta interna del frontend a la que volver tras el login (`/salas/abc`). Solo rutas
- * relativas: nada de `//otro-sitio.com` ni URLs absolutas (evita redirecciones abiertas).
- */
 export function safeRedirectPath(value: unknown): string | null {
   if (typeof value !== 'string' || value.length === 0 || value.length > 300) return null;
   if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return null;
@@ -68,8 +64,14 @@ export class AuthController {
     next: NextFunction
   ): Promise<void> => {
     try {
-      const profile = await this.userService.register(req.body);
-      sendSuccess(res, 201, profile, '¡Tu cuenta está lista!');
+      // 1. Registramos al usuario en Firestore y Auth
+      await this.userService.register(req.body);
+      
+      // 2. Iniciamos sesión automáticamente con las mismas credenciales
+      const result = await this.authService.login(req.body.email, req.body.password);
+      
+      // 3. Devolvemos la misma estructura que el login (perfil + tokens)
+      sendSuccess(res, 201, result, '¡Tu cuenta está lista!');
     } catch (error) {
       next(error);
     }
@@ -122,7 +124,7 @@ export class AuthController {
     res.cookie(OAUTH_STATE_COOKIE, `${state}.${Buffer.from(redirect).toString('base64url')}`, {
       httpOnly: true,
       secure: this.options.secureCookies,
-      sameSite: 'lax', // se envía en la vuelta desde Google (navegación de primer nivel)
+      sameSite: 'lax',
       path: OAUTH_COOKIE_PATH,
       maxAge: OAUTH_COOKIE_MAX_AGE_MS,
     });
