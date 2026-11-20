@@ -22,6 +22,8 @@ export interface IdentityProvider {
   deleteUser(uid: string): Promise<void>;
   /** Invalida los refresh tokens del usuario (cerrar sesión en todos los dispositivos). */
   revokeSessions(uid: string): Promise<void>;
+  /** Actualiza el correo en Firebase Auth. Lanza 409 si el correo ya está en uso. */
+  updateEmail(uid: string, newEmail: string): Promise<void>;
 }
 
 function authOrUnavailable() {
@@ -82,6 +84,27 @@ export class FirebaseIdentityProvider implements IdentityProvider {
       if ((error as { code?: string }).code === 'auth/user-not-found') return;
       console.error(`[Auth] Error al cerrar la sesión de ${uid}: ${(error as Error).message}`);
       throw new ServiceUnavailableError();
+    }
+  }
+
+  async updateEmail(uid: string, newEmail: string): Promise<void> {
+    const auth = authOrUnavailable();
+    try {
+      await auth.updateUser(uid, { email: newEmail });
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      const code = (error as { code?: string }).code ?? '';
+
+      switch (code) {
+        case 'auth/email-already-exists':
+          // Este es el error que atrapa si el correo ya lo tiene un usuario de Google o manual
+          throw new EmailInUseError('Este correo ya está registrado por otro usuario.');
+        case 'auth/invalid-email':
+          throw new ValidationError(undefined, { email: 'Escribe un correo válido.' });
+        default:
+          console.error(`[Auth] Error al actualizar el correo (${code}): ${(error as Error).message}`);
+          throw new ServiceUnavailableError('No pudimos actualizar tu correo en este momento.');
+      }
     }
   }
 }
