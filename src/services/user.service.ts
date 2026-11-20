@@ -9,9 +9,6 @@ import { UpdateProfileInput } from '../validators/user.schemas';
 const GOOGLE_PROVIDER = 'google.com';
 const NAME_MAX = 50;
 
-
-
-
 /** Separa el displayName de Google en nombres (primera palabra) y apellidos (resto). */
 export function splitGoogleName(displayName: string | null): { firstName: string; lastName: string } {
   const parts = (displayName ?? '').trim().split(/\s+/).filter(Boolean);
@@ -48,13 +45,17 @@ export class UserService {
       });
     }
 
-    // La actualización del correo se limita al perfil, ya que IdentityProvider
-    // no expone una operación para modificar Firebase Auth.
+    // Si es cuenta manual y está cambiando el correo, actualizamos Firebase Auth PRIMERO.
+    // Firebase Auth rechazará la operación si el correo ya existe (sea de Google o manual).
+    if (input.email && !isGoogleAccount && input.email !== user.email) {
+      await this.identity.updateEmail(uid, input.email);
+    }
+
+    // Si Auth fue exitoso (o no se cambió el correo), actualizamos Firestore
     return this.users.updateProfile(uid, input, isGoogleAccount);
   }
 
-
-    async deleteAccount(uid: string): Promise<void> {
+  async deleteAccount(uid: string): Promise<void> {
     // 1. Borrar de Firestore (tu repositorio ya hace la transacción y libera el username)
     await this.users.deleteProfile(uid);
     
@@ -63,19 +64,9 @@ export class UserService {
       await this.identity.deleteUser(uid);
     } catch (error) {
       console.error(`[Eliminar Cuenta] Error al borrar Auth ${uid}:`, error);
-      // No lanzamos error para que el frontend no se quede colgado si Auth falla, 
-      // ya que el perfil de la base de datos ya se borró.
     }
   }
   
-  /**
-   * Registro manual (US-01):
-   *  1. Verificación rápida del username (evita crear la cuenta de Auth si ya está ocupado).
-   *  2. Crea la cuenta en Firebase Auth (409 EMAIL_IN_USE si el correo existe).
-   *  3. Transacción que reserva usernames/{lower} y crea users/{uid}: es la garantía
-   *     real de unicidad ante registros simultáneos.
-   *  4. Si el paso 3 falla, elimina la cuenta de Auth para no dejar cuentas a medias.
-   */
   async register(input: RegisterInput): Promise<UserProfile> {
     if (await this.users.isUsernameTaken(input.username)) {
       throw new UsernameTakenError();
@@ -109,10 +100,6 @@ export class UserService {
     }
   }
 
-  /**
-   * Perfil del usuario de la sesión (US-02, US-03). En el primer ingreso con Google
-   * crea el perfil incompleto (sin username) con nombre, foto y correo de Google.
-   */
   async getOrCreateMe(auth: AuthUser): Promise<MeResult> {
     const existing = await this.users.findById(auth.uid);
     if (existing) return { profile: existing, created: false };
@@ -136,16 +123,11 @@ export class UserService {
     return { profile, created: true };
   }
 
-  /**
-   * Imagen de perfil propia: sube a Cloudinary (reemplaza la anterior del mismo uid)
-   * y guarda la URL en users/{uid}.avatar. El archivo ya llega validado por uploadAvatar.
-   */
   async updateAvatar(uid: string, image: Buffer): Promise<UserProfile> {
     const { url } = await this.images.uploadAvatar(uid, image);
     return this.users.updateAvatar(uid, url);
   }
 
-  /** Elegir username para completar el perfil (US-02). Misma unicidad que US-01. */
   async chooseUsername(uid: string, username: string): Promise<UserProfile> {
     return this.users.claimUsername(uid, username);
   }

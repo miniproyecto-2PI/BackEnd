@@ -3,8 +3,7 @@ import {
   CreateIncompleteProfileInput,
   UserProfile,
 } from '../../types/user.types';
-
-type UpdateProfileInput = Partial<UserProfile>;
+import { UpdateProfileInput } from '../../validators/user.schemas'; // Importar el tipo correcto
 
 /**
  * Acceso a los perfiles (users/{uid}) y a la reserva de nombres de usuario
@@ -36,5 +35,6 @@ export interface IUserRepository {
   /** Borra el perfil y libera su username. Idempotente. */
   deleteProfile(uid: string): Promise<void>;
 
+  /** Actualiza los datos del perfil en Firestore. */
   updateProfile(uid: string, input: UpdateProfileInput, isGoogleAccount: boolean): Promise<UserProfile>;
 }
