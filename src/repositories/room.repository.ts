@@ -1,7 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore';
 import { getFirestore } from '../config/firebase';
 import { customAlphabet } from 'nanoid';
-import { NotFoundError } from '../types/errors.types';
 
 const ROOMS_COLLECTION = 'rooms';
 // ID sin letras ambiguas (O, 0, I, 1, L)
@@ -32,7 +31,9 @@ export class RoomRepository {
     };
 
     await roomRef.create(roomData);
-    return { ...roomData, createdAt: now.toDate().toISOString(), updatedAt: now.toDate().toISOString() } as any;
+    const createdAtIso = now.toDate().toISOString();
+    const room: Room & { updatedAt: string } = { ...roomData, createdAt: createdAtIso, updatedAt: createdAtIso };
+    return room;
   }
 
   async findByOwnerId(ownerId: string): Promise<Room[]> {
