@@ -17,6 +17,7 @@ import {
   UsernameTakenError,
   ValidationError,
 } from '../../src/types/errors.types';
+import { UpdateProfileInput } from '../../src/validators/user.schemas';
 import { createApp } from '../../src/app';
 import { AuthGateway, AuthSession, SignInResult } from '../../src/services/auth.gateway';
 import { GoogleOAuthClient } from '../../src/services/google.oauth';
@@ -125,6 +126,33 @@ export class InMemoryUserRepository implements IUserRepository {
     }
     this.users.delete(uid);
   }
+
+  /** Misma lógica que FirestoreUserRepository.updateProfile (US-04), en memoria. */
+  async updateProfile(uid: string, input: UpdateProfileInput, isGoogleAccount: boolean): Promise<UserProfile> {
+    await tick();
+    const profile = this.users.get(uid);
+    if (!profile) throw new NotFoundError('Perfil no encontrado');
+
+    const updates: Partial<UserProfile> = { updatedAt: new Date().toISOString() };
+    if (input.firstName) updates.firstName = input.firstName;
+    if (input.lastName) updates.lastName = input.lastName;
+    if (input.avatar) updates.avatar = input.avatar;
+    if (input.email && !isGoogleAccount && input.email !== profile.email) updates.email = input.email;
+
+    if (input.username && input.username !== profile.username) {
+      const newLower = input.username.toLowerCase();
+      if (this.usernames.has(newLower)) throw new UsernameTakenError();
+      if (profile.usernameLower && this.usernames.get(profile.usernameLower) === uid) {
+        this.usernames.delete(profile.usernameLower);
+      }
+      this.usernames.set(newLower, uid);
+      updates.username = input.username;
+      updates.usernameLower = newLower;
+    }
+
+    Object.assign(profile, updates);
+    return { ...profile };
+  }
 }
 
 /** Firebase Auth en memoria: registra las cuentas creadas y las eliminadas (rollback). */
@@ -153,6 +181,14 @@ export class FakeIdentityProvider implements IdentityProvider {
   async revokeSessions(uid: string): Promise<void> {
     await tick();
     this.revokedUids.push(uid);
+  }
+
+  async updateEmail(uid: string, newEmail: string): Promise<void> {
+    await tick();
+    const takenByOther = [...this.accounts.entries()].some(([id, a]) => id !== uid && a.email === newEmail);
+    if (takenByOther) throw new EmailInUseError('Este correo ya está registrado por otro usuario.');
+    const account = this.accounts.get(uid);
+    if (account) this.accounts.set(uid, { ...account, email: newEmail });
   }
 }
 

@@ -14,7 +14,7 @@ const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('W
 async function setupCompleteUser() {
   const ctx = buildTestApp();
   const res = await request(ctx.app).post('/api/auth/register').send(validRegistration()).expect(201);
-  const uid = res.body.data.uid as string;
+  const uid = res.body.data.profile.uid as string;
   ctx.tokenVerifier.register('ana', { uid, signInProvider: 'password' });
   return { ...ctx, uid, auth: { Authorization: 'Bearer ana' } };
 }
