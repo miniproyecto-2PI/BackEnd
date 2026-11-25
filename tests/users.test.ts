@@ -60,7 +60,7 @@ describe('GET /api/users/me', () => {
   it('devuelve el perfil completo de un usuario registrado manualmente (login, US-03)', async () => {
     const { app, tokenVerifier } = setup();
     const created = await request(app).post('/api/auth/register').send(validRegistration()).expect(201);
-    tokenVerifier.register('ana', { uid: created.body.data.uid, signInProvider: 'password' });
+    tokenVerifier.register('ana', { uid: created.body.data.profile.uid, signInProvider: 'password' });
 
     const res = await request(app).get(ME).set(auth('ana'));
 
