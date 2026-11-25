@@ -16,19 +16,22 @@ describe('POST /api/auth/register (US-01)', () => {
       success: true,
       message: '¡Tu cuenta está lista!',
       data: {
-        firstName: 'Ana María',
-        lastName: 'Pérez Gómez',
-        username: 'Ana_01',
-        usernameLower: 'ana_01',
-        email: 'ana.perez@correounivalle.edu.co',
-        avatar: 'avatar-03',
-        provider: 'password',
-        profileComplete: true,
+        profile: {
+          firstName: 'Ana María',
+          lastName: 'Pérez Gómez',
+          username: 'Ana_01',
+          usernameLower: 'ana_01',
+          email: 'ana.perez@correounivalle.edu.co',
+          avatar: 'avatar-03',
+          provider: 'password',
+          profileComplete: true,
+        },
+        session: { idToken: expect.any(String), refreshToken: expect.any(String), expiresIn: expect.any(Number) },
       },
     });
-    expect(res.body.data).not.toHaveProperty('password');
+    expect(res.body.data.profile).not.toHaveProperty('password');
     expect(identityProvider.accounts.size).toBe(1);
-    expect(userRepository.usernames.get('ana_01')).toBe(res.body.data.uid);
+    expect(userRepository.usernames.get('ana_01')).toBe(res.body.data.profile.uid);
   });
 
   it('normaliza los datos: recorta nombres y guarda el correo en minúsculas', async () => {
@@ -38,8 +41,8 @@ describe('POST /api/auth/register (US-01)', () => {
       .send(validRegistration({ firstName: '  Ana  ', email: '  ANA.Perez@Correounivalle.edu.co ' }));
 
     expect(res.status).toBe(201);
-    expect(res.body.data.firstName).toBe('Ana');
-    expect(res.body.data.email).toBe('ana.perez@correounivalle.edu.co');
+    expect(res.body.data.profile.firstName).toBe('Ana');
+    expect(res.body.data.profile.email).toBe('ana.perez@correounivalle.edu.co');
   });
 
   it('señala cada campo inválido con un mensaje que explica cómo corregirlo (400)', async () => {
