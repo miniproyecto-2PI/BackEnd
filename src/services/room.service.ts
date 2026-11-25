@@ -21,12 +21,28 @@ export class RoomService {
     return this.rooms.remove(id, uid);
   }
 
-  async getRoom(roomId: string) {
+  private validatedId(roomId: string) {
     const id = roomId.trim();
     if (!/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(id)) {
       throw new ValidationError('Revisa el ID de la sala.', { id: 'Escribe el ID de 8 caracteres de la sala.' });
     }
-    const room = await this.rooms.findById(id);
+    return id;
+  }
+
+  async history(roomId: string, limit: unknown, before: unknown) {
+    const id = this.validatedId(roomId);
+    if (limit !== undefined && (typeof limit !== 'string' || !/^(?:[1-9]|[1-4][0-9]|50)$/.test(limit))) {
+      throw new ValidationError('Límite inválido.', { limit: 'Usa un entero entre 1 y 50.' });
+    }
+    if (before !== undefined && (typeof before !== 'string' || !before || before.includes('/') ||
+        before === '.' || before === '..' || Buffer.byteLength(before) > 1500)) {
+      throw new ValidationError('Cursor inválido.', { before: 'Usa el nextBefore de la página anterior.' });
+    }
+    return this.rooms.messageHistory(id, limit === undefined ? 50 : Number(limit), before);
+  }
+
+  async getRoom(roomId: string) {
+    const room = await this.rooms.findById(this.validatedId(roomId));
     if (!room) throw new RoomNotFoundError('No encontramos una sala con ese ID. Revisa que esté bien escrito.');
     return room;
   }

@@ -9,6 +9,7 @@ export function createRoomsRouter(roomService: RoomService, authenticate: Reques
   const controller = new RoomController(roomService);
 
   router.use(authenticate);
+  router.get('/:id/messages', controller.history);
   router.use(requireCompleteProfile); // Requiere perfil completo para gestionar salas
 
   router.post('/', validateBody(createRoomSchema), controller.createRoom);

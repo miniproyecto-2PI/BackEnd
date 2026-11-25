@@ -1,7 +1,8 @@
 import { DocumentReference, DocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
 import { getFirestore } from '../config/firebase';
 import { customAlphabet } from 'nanoid';
-import { ForbiddenError, NotFoundError } from '../types/errors.types';
+import { ForbiddenError, NotFoundError, RoomNotFoundError, ValidationError } from '../types/errors.types';
+import { toFirestoreError } from '../utils/firestoreErrors';
 
 const ROOMS_COLLECTION = 'rooms';
 // ID sin letras ambiguas (O, 0, I, 1, L)
@@ -56,6 +57,33 @@ export class RoomRepository {
       throw new NotFoundError('Sala no encontrada.');
     }
     return this.rooms().doc(id);
+  }
+
+  async messageHistory(id: string, limit: number, before?: string) {
+    try {
+      const room = this.rooms().doc(id);
+      const messages = room.collection('messages');
+      return await this.db.runTransaction(async tx => {
+        const snapshot = await tx.get(room);
+        if (!snapshot.exists || snapshot.get('deleting')) throw new RoomNotFoundError();
+        // Firestore desempata por ID de documento. El snapshot conserva la precisión del Timestamp.
+        let query = messages.orderBy('createdAt', 'desc').limit(limit + 1);
+        if (before) {
+          const cursor = await tx.get(messages.doc(before));
+          if (!cursor.exists || !cursor.get('createdAt')) {
+            throw new ValidationError('El cursor no corresponde a un mensaje de esta sala.');
+          }
+          query = query.startAfter(cursor);
+        }
+        const result = await tx.get(query);
+        const hasMore = result.size > limit;
+        const page = result.docs.slice(0, limit).reverse().map(doc => {
+          const data = doc.data();
+          return { id: doc.id, roomId: id, author: data.author, text: data.text, createdAt: data.createdAt.toDate().toISOString() };
+        });
+        return { messages: page, hasMore, nextBefore: hasMore ? page[0].id : null };
+      }, { readOnly: true });
+    } catch (error) { throw toFirestoreError(error, 'consultar el historial de la sala'); }
   }
 
   private requireOwner(snapshot: DocumentSnapshot, uid: string) {
