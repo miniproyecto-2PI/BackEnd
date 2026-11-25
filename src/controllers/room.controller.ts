@@ -7,6 +7,13 @@ import { UnauthenticatedError } from '../types/errors.types';
 export class RoomController {
   constructor(private readonly roomService: RoomService) {}
 
+  history = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      const page = await this.roomService.history(req.params.id, req.query.limit, req.query.before);
+      sendSuccess(res, 200, page, 'Historial obtenido.');
+    } catch (error) { next(error); }
+  };
+
   createRoom = async (req: Request<unknown, unknown, CreateRoomInput>, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!req.auth) throw new UnauthenticatedError();

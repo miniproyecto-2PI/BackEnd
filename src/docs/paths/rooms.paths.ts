@@ -1,4 +1,4 @@
-import { errorRef, jsonBody } from '../openapi.helpers';
+import { errorRef, jsonBody, successResponse } from '../openapi.helpers';
 import { createRoomSchema } from '../../validators/room.schemas';
 
 export const TAG_ROOMS = 'Salas (US-06 y US-07)';
@@ -12,6 +12,34 @@ const ownerErrors = {
 };
 
 export const roomsPaths = {
+  '/api/rooms/{id}/messages': {
+    get: {
+      tags: [TAG_ROOMS], security: [{ bearerAuth: [] }],
+      summary: 'Consultar el historial del chat (US-11)',
+      description: 'Devuelve la página más reciente en orden cronológico. Para cargar mensajes anteriores, enviar nextBefore como before. Una sala vacía devuelve messages: [], hasMore: false y nextBefore: null.',
+      parameters: [
+        ...ownerOperation.parameters,
+        { in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 50, default: 50 } },
+        { in: 'query', name: 'before', description: 'Cursor exclusivo de la misma sala.', schema: { type: 'string' } },
+      ],
+      responses: {
+        200: successResponse('Página de historial', {
+          type: 'object', required: ['messages', 'hasMore', 'nextBefore'],
+          properties: {
+            messages: { type: 'array', items: { type: 'object', properties: {
+              id: { type: 'string' }, roomId: { type: 'string' }, text: { type: 'string' },
+              createdAt: { type: 'string', format: 'date-time' },
+              author: { type: 'object', properties: { uid: { type: 'string' }, name: { type: 'string' }, avatar: { type: 'string', nullable: true } } },
+            } } },
+            hasMore: { type: 'boolean' }, nextBefore: { type: 'string', nullable: true },
+          },
+        }),
+        400: errorRef('BadRequest'), 401: errorRef('Unauthorized'),
+        404: { description: 'ROOM_NOT_FOUND. La sala no existe o está en eliminación.' },
+        503: errorRef('ServiceUnavailable'),
+      },
+    },
+  },
   '/api/rooms': {
     post: {
       tags: [TAG_ROOMS],
