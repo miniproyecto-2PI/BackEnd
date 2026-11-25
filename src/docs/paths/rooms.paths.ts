@@ -149,7 +149,15 @@ export const roomsPaths = {
           },
         },
         401: { description: 'No autorizado.' },
-        404: { description: 'Sala no encontrada.' },
+        400: errorRef('BadRequest'),
+        403: errorRef('Forbidden'),
+        404: {
+          description: 'ROOM_NOT_FOUND. La sala no existe o se está eliminando.',
+          content: { 'application/json': {
+            schema: { $ref: '#/components/schemas/StandardErrorResponse' },
+            example: { error: { code: 'ROOM_NOT_FOUND', message: 'No encontramos una sala con ese ID. Revisa que esté bien escrito.', fields: null } },
+          } },
+        },
       },
     },
   },

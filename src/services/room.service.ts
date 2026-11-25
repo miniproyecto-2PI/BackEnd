@@ -1,6 +1,6 @@
 import { RoomRepository } from '../repositories/room.repository';
 import { CreateRoomInput } from '../validators/room.schemas';
-import { NotFoundError } from '../types/errors.types';
+import { RoomNotFoundError, ValidationError } from '../types/errors.types';
 
 export class RoomService {
   constructor(private readonly rooms: RoomRepository) {}
@@ -22,8 +22,12 @@ export class RoomService {
   }
 
   async getRoom(roomId: string) {
-    const room = await this.rooms.findById(roomId);
-    if (!room) throw new NotFoundError('Sala no encontrada.');
+    const id = roomId.trim();
+    if (!/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(id)) {
+      throw new ValidationError('Revisa el ID de la sala.', { id: 'Escribe el ID de 8 caracteres de la sala.' });
+    }
+    const room = await this.rooms.findById(id);
+    if (!room) throw new RoomNotFoundError('No encontramos una sala con ese ID. Revisa que esté bien escrito.');
     return room;
   }
 }

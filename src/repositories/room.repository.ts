@@ -45,7 +45,7 @@ export class RoomRepository {
 
   async findById(roomId: string): Promise<Room | null> {
     const snap = await this.rooms().doc(roomId).get();
-    if (!snap.exists) return null;
+    if (!snap.exists || snap.get('deleting') === true) return null;
     const d = snap.data()!;
     return { id: snap.id, name: d.name, ownerId: d.ownerId, createdAt: d.createdAt.toDate().toISOString() };
   }
