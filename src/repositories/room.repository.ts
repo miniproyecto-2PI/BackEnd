@@ -1,4 +1,4 @@
-import { DocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
+import { DocumentReference, DocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
 import { getFirestore } from '../config/firebase';
 import { customAlphabet } from 'nanoid';
 import { ForbiddenError, NotFoundError } from '../types/errors.types';
@@ -76,7 +76,10 @@ export class RoomRepository {
   }
 
   async remove(id: string, uid: string): Promise<void> {
-    const ref = this.roomRef(id);
+    await this.removeWithMessages(this.roomRef(id), uid);
+  }
+
+  private async removeWithMessages(ref: DocumentReference, uid: string): Promise<void> {
     const pageSize = 400;
     // Cada lote conserva el dueño hasta que el chat esté vacío, incluso al reintentar.
     let finished = false;
@@ -98,13 +101,13 @@ export class RoomRepository {
   /** Borra todas las salas que pertenecen a un usuario. Usado en US-05 al eliminar cuenta. */
   async deleteByOwnerId(ownerId: string): Promise<void> {
     const snapshot = await this.rooms().where('ownerId', '==', ownerId).get();
-    if (snapshot.empty) return;
-
-    // Usamos un batch para borrar todos los documentos eficientemente
-    const batch = this.db.batch();
-    snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
-    });
-    await batch.commit();
+    for (const room of snapshot.docs) {
+      try {
+        await this.removeWithMessages(room.ref, ownerId);
+      } catch (error) {
+        // La sala pudo eliminarse en paralelo después de listar las salas del usuario.
+        if (!(error instanceof NotFoundError)) throw error;
+      }
+    }
   }
 }
