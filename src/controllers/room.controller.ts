@@ -29,4 +29,20 @@ export class RoomController {
       sendSuccess(res, 200, room, 'Sala obtenida correctamente.');
     } catch (error) { next(error); }
   };
+
+  renameRoom = async (req: Request<{ id: string }, unknown, CreateRoomInput>, res: Response, next: NextFunction) => {
+    try {
+      if (!req.auth) throw new UnauthenticatedError();
+      const room = await this.roomService.renameRoom(req.params.id, req.auth.uid, req.body);
+      sendSuccess(res, 200, room, 'Sala actualizada.');
+    } catch (error) { next(error); }
+  };
+
+  deleteRoom = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+    try {
+      if (!req.auth) throw new UnauthenticatedError();
+      await this.roomService.deleteRoom(req.params.id, req.auth.uid);
+      res.sendStatus(204);
+    } catch (error) { next(error); }
+  };
 }

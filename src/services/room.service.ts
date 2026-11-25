@@ -13,6 +13,14 @@ export class RoomService {
     return this.rooms.findByOwnerId(ownerId);
   }
 
+  renameRoom(id: string, uid: string, input: CreateRoomInput) {
+    return this.rooms.rename(id, uid, input.name);
+  }
+
+  deleteRoom(id: string, uid: string) {
+    return this.rooms.remove(id, uid);
+  }
+
   async getRoom(roomId: string) {
     const room = await this.rooms.findById(roomId);
     if (!room) throw new NotFoundError('Sala no encontrada.');

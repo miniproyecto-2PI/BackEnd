@@ -1,7 +1,7 @@
-import { Timestamp } from 'firebase-admin/firestore';
+import { DocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
 import { getFirestore } from '../config/firebase';
 import { customAlphabet } from 'nanoid';
-import { NotFoundError } from '../types/errors.types';
+import { ForbiddenError, NotFoundError } from '../types/errors.types';
 
 const ROOMS_COLLECTION = 'rooms';
 // ID sin letras ambiguas (O, 0, I, 1, L)
@@ -48,6 +48,50 @@ export class RoomRepository {
     if (!snap.exists) return null;
     const d = snap.data()!;
     return { id: snap.id, name: d.name, ownerId: d.ownerId, createdAt: d.createdAt.toDate().toISOString() };
+  }
+
+  private roomRef(id: string) {
+    if (!/^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/.test(id)) {
+      throw new NotFoundError('Sala no encontrada.');
+    }
+    return this.rooms().doc(id);
+  }
+
+  private requireOwner(snapshot: DocumentSnapshot, uid: string) {
+    const data = snapshot.data();
+    if (!data) throw new NotFoundError('Sala no encontrada.');
+    if (data.ownerId !== uid) throw new ForbiddenError('Solo el anfitrión puede gestionar la sala.');
+    return data;
+  }
+
+  async rename(id: string, uid: string, name: string): Promise<Room> {
+    const ref = this.roomRef(id);
+    return this.db.runTransaction(async tx => {
+      const data = this.requireOwner(await tx.get(ref), uid);
+      if (data.deleting) throw new NotFoundError('La sala se está eliminando.');
+      tx.update(ref, { name, updatedAt: Timestamp.now() });
+      return { id, ownerId: uid, name, createdAt: data.createdAt.toDate().toISOString() };
+    });
+  }
+
+  async remove(id: string, uid: string): Promise<void> {
+    const ref = this.roomRef(id);
+    const pageSize = 400;
+    // Cada lote conserva el dueño hasta que el chat esté vacío, incluso al reintentar.
+    let finished = false;
+    while (!finished) {
+      finished = await this.db.runTransaction(async tx => {
+        const data = this.requireOwner(await tx.get(ref), uid);
+        const messages = await tx.get(ref.collection('messages').limit(pageSize));
+        messages.docs.forEach(message => tx.delete(message.ref));
+        if (messages.size < pageSize) {
+          tx.delete(ref);
+          return true;
+        }
+        if (!data.deleting) tx.update(ref, { deleting: true });
+        return false;
+      });
+    }
   }
 
   /** Borra todas las salas que pertenecen a un usuario. Usado en US-05 al eliminar cuenta. */
