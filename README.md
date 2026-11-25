@@ -344,3 +344,29 @@ CORS_ORIGIN=https://estudiemos.vercel.app,https://frontend-*-miniproyecto-2pi.ve
 - `*` dentro de **un** segmento del host sirve para las previews de Vercel; no abarca puntos (no permite otro dominio).
 - Siempre se permiten las peticiones sin `Origin` (curl, Postman, health checks) y las del mismo origen del servidor (Swagger UI).
 - Un origen no permitido no recibe `Access-Control-Allow-Origin` y el navegador bloquea la respuesta.
+
+## TS-08 · Preparar datos del Sprint 3
+
+Desde BackEnd, instala dependencias con `npm ci`. En el `.env` local configura estos valores y las seis variables de credenciales:
+
+```dotenv
+FIREBASE_PROJECT_ID=demo-estudiemos
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8085
+SEED_A_EMAIL=
+SEED_A_PASSWORD=
+SEED_B_EMAIL=
+SEED_B_PASSWORD=
+SEED_C_EMAIL=
+SEED_C_PASSWORD=
+```
+
+Asigna tres correos distintos y contraseñas de prueba de al menos ocho caracteres con letra y número. Usa la misma configuración de emuladores en la API y en Realtime, sin credenciales de producción. En una terminal inicia `firebase emulators:start --only auth,firestore --project demo-estudiemos`. En otra, ejecuta **`npm run seed:reset`**. El mismo comando repone los perfiles y salas y reconstruye únicamente el chat de las tres salas reservadas. Ejecuta el reset entre demostraciones, con los clientes desconectados.
+
+| ID | Anfitrión | Mensajes iniciales | Prueba |
+|---|---|---:|---|
+| DEMA2222 | DemoA | 0 | US-08 y US-11: ingreso y estado vacío |
+| DEMB3333 | DemoB | 3 | US-07 y US-10: A obtiene 403 al editar; B administra y los participantes envían mensajes |
+| DEMC4444 | DemoA | 120 | US-11: páginas de 50, 50 y 20, sin repetir IDs |
+
+DemoC es invitado en los tres escenarios. Los perfiles tienen correo verificado, username y avatar. El script usa UIDs reservados y una marca de propiedad antes de reutilizar documentos.

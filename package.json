@@ -4,6 +4,7 @@
   "description": "API REST Backend para Salón de Estudio Colaborativo - MiniProyecto 2",
   "main": "dist/server.js",
   "scripts": {
+    "seed:reset": "tsx src/scripts/reset-demo.ts",
     "build": "rimraf dist && tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
