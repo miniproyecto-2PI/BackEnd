@@ -1,4 +1,15 @@
-export const TAG_ROOMS = 'Salas (US-06)';
+import { errorRef, jsonBody } from '../openapi.helpers';
+import { createRoomSchema } from '../../validators/room.schemas';
+
+export const TAG_ROOMS = 'Salas (US-06 y US-07)';
+const ownerOperation = {
+  tags: [TAG_ROOMS],
+  security: [{ bearerAuth: [] }],
+  parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+};
+const ownerErrors = {
+  401: errorRef('Unauthorized'), 403: errorRef('Forbidden'), 404: errorRef('NotFound'),
+};
 
 export const roomsPaths = {
   '/api/rooms': {
@@ -89,6 +100,17 @@ export const roomsPaths = {
     },
   },
   '/api/rooms/{id}': {
+    patch: {
+      ...ownerOperation,
+      summary: 'Cambiar el nombre de una sala propia',
+      requestBody: jsonBody(createRoomSchema, { name: 'Grupo de cálculo' }),
+      responses: { ...ownerErrors, 200: { description: 'Sala actualizada en data.' }, 400: errorRef('BadRequest') },
+    },
+    delete: {
+      ...ownerOperation,
+      summary: 'Eliminar una sala propia y su chat',
+      responses: { ...ownerErrors, 204: { description: 'Sala y mensajes eliminados.' } },
+    },
     get: {
       tags: [TAG_ROOMS],
       summary: 'Obtener una sala por ID',
@@ -127,7 +149,15 @@ export const roomsPaths = {
           },
         },
         401: { description: 'No autorizado.' },
-        404: { description: 'Sala no encontrada.' },
+        400: errorRef('BadRequest'),
+        403: errorRef('Forbidden'),
+        404: {
+          description: 'ROOM_NOT_FOUND. La sala no existe o se está eliminando.',
+          content: { 'application/json': {
+            schema: { $ref: '#/components/schemas/StandardErrorResponse' },
+            example: { error: { code: 'ROOM_NOT_FOUND', message: 'No encontramos una sala con ese ID. Revisa que esté bien escrito.', fields: null } },
+          } },
+        },
       },
     },
   },

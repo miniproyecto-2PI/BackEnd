@@ -14,6 +14,8 @@ export function createRoomsRouter(roomService: RoomService, authenticate: Reques
   router.post('/', validateBody(createRoomSchema), controller.createRoom);
   router.get('/', controller.listRooms);
   router.get('/:id', controller.getRoom);
+  router.patch('/:id', validateBody(createRoomSchema), controller.renameRoom);
+  router.delete('/:id', controller.deleteRoom);
 
   return router;
 }

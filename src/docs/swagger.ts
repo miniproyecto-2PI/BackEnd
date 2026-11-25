@@ -38,7 +38,7 @@ Todos los errores responden \`{ "error": { "code", "message", "fields" } }\` con
     },
     {
       name: TAG_ROOMS, // NUEVO
-      description: 'Creación y visualización de salas de estudio propias (US-06).',
+      description: 'Creación, consulta, edición y eliminación de salas de estudio (US-06 y US-07).',
     },
     { name: 'Salud del Sistema (Health)', description: 'Monitoreo del estado de la API y de Firestore' },
     { name: 'Arquetipo Base (TS-00)', description: 'Base técnica: lectura y escritura de un dato en Firestore' },

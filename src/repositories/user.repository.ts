@@ -46,7 +46,9 @@ export class FirestoreUserRepository implements IUserRepository {
         if (!userSnap.exists) throw new NotFoundError('Perfil no encontrado');
         
         const currentData = userSnap.data()!;
-        const updates: Record<string, unknown> = { updatedAt: Timestamp.now() };
+        const updates: UpdateProfileInput & { updatedAt: Timestamp; usernameLower?: string } = {
+          updatedAt: Timestamp.now(),
+        };
 
         // 1. Nombres y Avatar
         if (input.firstName) updates.firstName = input.firstName;
