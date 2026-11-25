@@ -18,7 +18,7 @@ export class RoomRepository {
   private get db() { return getFirestore(); }
   private rooms() { return this.db.collection(ROOMS_COLLECTION); }
 
-  async create(ownerId: string, name: string): Promise<Room> {
+  async create(ownerId: string, name: string): Promise<Room & { updatedAt: string }> {
     const roomId = generateRoomId();
     const roomRef = this.rooms().doc(roomId);
     const now = Timestamp.now();
@@ -32,7 +32,8 @@ export class RoomRepository {
     };
 
     await roomRef.create(roomData);
-    return { ...roomData, createdAt: now.toDate().toISOString(), updatedAt: now.toDate().toISOString() } as any;
+    const timestamp = now.toDate().toISOString();
+    return { ...roomData, createdAt: timestamp, updatedAt: timestamp };
   }
 
   async findByOwnerId(ownerId: string): Promise<Room[]> {
