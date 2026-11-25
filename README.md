@@ -4,6 +4,14 @@ API REST en **Node.js + TypeScript** (Express), con **arquitectura por capas**, 
 
 Forma parte de una arquitectura de 3 proyectos independientes: `FrontEnd` (Vercel), `BackEnd` (este repositorio) y `backend-realtime` (Socket.IO). **El frontend nunca consulta Firestore directamente**: solo usa Firebase Authentication para iniciar sesión, y todos los datos pasan por esta API.
 
+### TS-09 · Integración con presencia y reconexión
+
+Al entrar o recuperar la red, usar el mismo proyecto Firebase para REST y Socket.IO.
+La API valida el token en `GET /api/rooms/:id` y devuelve `404 ROOM_NOT_FOUND` si la sala ya no admite ingreso.
+Realtime valida nuevamente la sala en cada handshake que incluya `auth.roomId`, entrega una lista actualizada de participantes y notifica si se eliminó.
+Tras reconectar, el cliente puede recuperar los mensajes omitidos con `GET /api/rooms/:id/messages` y combinar por ID.
+El contrato de presencia, chat y recuperación se mantiene en el [catálogo versionado de Realtime](https://github.com/miniproyecto-2PI/backend-realtime/blob/main/docs/EVENTOS_TIEMPO_REAL.md).
+
 | Sprint | Historias cubiertas por esta API |
 |---|---|
 | 0 | TS-00 base técnica (dato leído de Firestore) · TS-05 contrato de errores |
